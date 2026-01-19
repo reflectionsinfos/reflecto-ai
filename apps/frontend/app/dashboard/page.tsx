@@ -211,23 +211,47 @@ export default function DashboardPage() {
 
       if (ctx) {
         await generateKudosCardToCanvas(canvas, cardData)
-        const thumbnailBase64 = await cardStorage.cardToBase64(canvas)
+        
+        // Create a smaller thumbnail canvas
+        const thumbnailCanvas = document.createElement("canvas")
+        const thumbnailWidth = 300
+        const thumbnailHeight = (canvas.height / canvas.width) * thumbnailWidth
+        thumbnailCanvas.width = thumbnailWidth
+        thumbnailCanvas.height = thumbnailHeight
+        
+        const thumbnailCtx = thumbnailCanvas.getContext("2d")
+        if (thumbnailCtx) {
+          thumbnailCtx.drawImage(canvas, 0, 0, thumbnailWidth, thumbnailHeight)
+          
+          // Convert to JPEG with quality compression
+          const thumbnailBase64 = await new Promise<string>((resolve) => {
+            thumbnailCanvas.toBlob((blob) => {
+              if (blob) {
+                const reader = new FileReader()
+                reader.onload = () => resolve(reader.result as string)
+                reader.readAsDataURL(blob)
+              } else {
+                resolve("")
+              }
+            }, "image/jpeg", 0.7) // Use JPEG with 70% quality
+          })
 
-        const storedCard: StoredCard = {
-          id: cardId,
-          recipientName: formData.recipientName,
-          creatorName: formData.creatorName,
-          creatorEmail: loggedInUser?.email || "",
-          template: selectedTemplate.name,
-          templateId: selectedTemplate.id,
-          message: formData.message,
-          createdAt: new Date().toISOString(),
-          thumbnailUrl: thumbnailBase64,
-          cardData: cardData,
-          imageBlob: thumbnailBase64,
+          const storedCard: StoredCard = {
+            id: cardId,
+            recipientName: formData.recipientName,
+            creatorName: formData.creatorName,
+            creatorEmail: loggedInUser?.email || "",
+            template: selectedTemplate.name,
+            templateId: selectedTemplate.id,
+            message: formData.message,
+            createdAt: new Date().toISOString(),
+            thumbnailUrl: thumbnailBase64,
+            cardData: cardData,
+            // Removed imageBlob to save space, using thumbnailUrl is enough for preview
+          }
+
+          cardStorage.saveCard(storedCard)
         }
-
-        cardStorage.saveCard(storedCard)
       }
 
       // Log to Google Sheets

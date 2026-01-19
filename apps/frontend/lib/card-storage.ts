@@ -79,8 +79,11 @@ class CardStorageManager {
           templateId: card.templateId,
         },
       })
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error saving card:", error)
+      if (error.name === "QuotaExceededError" || error.code === 22) {
+        throw new Error("Storage full. Please delete some old cards or clear your browser data.")
+      }
       throw new Error("Failed to save card")
     }
   }

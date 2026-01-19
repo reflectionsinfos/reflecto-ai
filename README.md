@@ -1,66 +1,38 @@
-# Kudos Card App
+# ReflectoAI
 
-A web application for generating and sharing employee appreciation cards.
+A futuristic, AI-powered HR recognition platform.
 
-## Features
+## Project Structure (Monorepo)
 
-- **Login**: Role-based access (Admin/User).
-- **Create Card**: Choose from templates, customize messages, and upload images.
-- **My Cards**: View history of sent/received cards.
-- **Analytics**: (Admin) View usage statistics and activity trends.
+- **`apps/frontend`**: The Next.js Web Application.
+- **`apps/backend`**: The Node.js/AI Service.
+- **`packages/`**: Shared libraries.
 
 ## Getting Started
 
 ### Prerequisites
 
 - Node.js 18+
-- npm or pnpm
+- npm
 
 ### Installation
 
-1.  Clone the repository:
+```bash
+npm install
+```
 
-    ```bash
-    git clone <repository-url>
-    cd kudos-app
-    ```
+### Running the App
 
-2.  Install dependencies:
-    ```bash
-    npm install
-    # or
-    pnpm install
-    ```
+To start **both** the Frontend and Backend simultaneously:
 
-### Local Development
+```bash
+npm run dev
+```
 
-1.  Start the development server:
+- **Frontend**: [http://localhost:3000](http://localhost:3000)
+- **Backend**: (Console Output)
 
-    ```bash
-    npm run dev
-    ```
+### Other Commands
 
-2.  Open [http://localhost:3000](http://localhost:3000) in your browser.
-
-### Login Credentials (Demo)
-
-| Role  | Email                 | Password      |
-| :---- | :-------------------- | :------------ |
-| Admin | `admin@kudoscard.com` | `password123` |
-| User  | `john@kudoscard.com`  | `password123` |
-| User  | `sarah@kudoscard.com` | `password123` |
-
-## Deployment
-
-The application is optimized for deployment on [Vercel](https://vercel.com).
-
-1.  Push your code to a Git repository (GitHub, GitLab, Bitbucket).
-2.  Import the project into Vercel.
-3.  Vercel will detect Next.js and configure the build settings automatically.
-
-## Tech Stack
-
-- Next.js 15
-- React 19
-- Tailwind CSS
-- Radix UI
+- `npm run build` - Build all apps.
+- `npm run lint` - Lint all code.
