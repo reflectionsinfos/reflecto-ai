@@ -64,12 +64,23 @@ NEXT_PUBLIC_API_URL=/api
 
 ## 3. Build and Run
 
-Run the application using Docker Compose.
+### Option A: Full Stack (Includes Database - For Dev/Test)
+
+Creates a fresh database container. Good for testing or isolated environments.
 
 ```bash
-# Build and start services in detached mode
-sudo docker-compose up -d --build
+sudo docker compose up -d --build
 ```
+
+### Option B: Production (Uses Host Database)
+
+**Recommended for 192.168.117.114**. Connects to your existing local Postgres and assumes Nginx is on the host.
+
+```bash
+sudo docker compose -f docker-compose.prod.yml up -d --build
+```
+
+_Note: This configuration uses `host.docker.internal` to connect to the database running natively on the server._
 
 - **Backend** will be accessible on `localhost:4000`.
 - **Frontend** will be accessible on `localhost:3000`.
