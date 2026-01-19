@@ -25,6 +25,9 @@ Ensure the following are installed on `192.168.117.114`:
   _(Check with `docker compose version`)_.
 - **Nginx**: Web server / Reverse proxy.
 - **Git**: Version control.
+  ```bash
+  sudo dnf install git -y
+  ```
 
 To check your Linux version (useful for installing Docker):
 
