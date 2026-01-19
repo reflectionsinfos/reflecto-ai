@@ -36,3 +36,18 @@ npm run dev
 
 - `npm run build` - Build all apps.
 - `npm run lint` - Lint all code.
+
+### Docker Deployment
+
+To run the application using Docker Compose (recommended for production):
+
+```bash
+# Build and start services
+docker-compose up -d --build
+
+# View logs
+docker-compose logs -f
+
+# Stop services
+docker-compose down
+```
