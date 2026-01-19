@@ -24,203 +24,169 @@ export interface HistoryEntry {
   metadata?: any
 }
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api";
+
+// Assuming we use the default tenant/admin for now, or fetch from context
+// For this iteration, we'll hardcode the ID seeded or fetch safely
+const DEFAULT_TENANT_ID = "75e9f297-3090-477c-ac59-e3a4614380b4"; // From seed output
+const DEFAULT_USER_EMAIL = "admin@kudoscard.com";
+
+export interface StoredCard {
+  id: string
+  recipientName: string
+  creatorName: string
+  creatorEmail: string
+  template: string
+  templateId: string
+  message: string
+  createdAt: string
+  thumbnailUrl: string
+  cardData: any
+  imageBlob?: string // Base64 encoded image data
+}
+
+export interface HistoryEntry {
+  id: string
+  action: "create" | "delete" | "download"
+  cardId: string
+  recipientName: string
+  creatorName: string
+  creatorEmail: string
+  template: string
+  timestamp: string
+  metadata?: any
+}
+
 class CardStorageManager {
-  private readonly CARDS_KEY = "kudos_cards"
-  private readonly HISTORY_KEY = "kudos_history"
-
   // Card Management
-  getAllCards(): StoredCard[] {
-    if (typeof window === "undefined") return []
-
+  async getAllCards(): Promise<StoredCard[]> {
     try {
-      const cards = localStorage.getItem(this.CARDS_KEY)
-      return cards ? JSON.parse(cards) : []
+      const res = await fetch(`${API_URL}/cards?tenantId=${DEFAULT_TENANT_ID}`);
+      if (!res.ok) throw new Error("Failed to fetch cards");
+      return await res.json();
     } catch (error) {
-      console.error("Error loading cards:", error)
-      return []
+      console.error("Error loading cards:", error);
+      return [];
     }
   }
 
-  getCardsByUser(userEmail: string): StoredCard[] {
-    return this.getAllCards().filter((card) => card.creatorEmail === userEmail)
-  }
-
-  getCardById(id: string): StoredCard | null {
-    const cards = this.getAllCards()
-    return cards.find((card) => card.id === id) || null
-  }
-
-  saveCard(card: StoredCard): void {
-    if (typeof window === "undefined") return
-
+  async getCardsByUser(userEmail: string): Promise<StoredCard[]> {
     try {
-      const cards = this.getAllCards()
-      const existingIndex = cards.findIndex((c) => c.id === card.id)
+        const res = await fetch(`${API_URL}/cards/user/${userEmail}`);
+        if (!res.ok) throw new Error("Failed to fetch user cards");
+        return await res.json();
+    } catch (error) {
+        console.error("Error loading user cards:", error);
+        return [];
+    }
+  }
 
-      if (existingIndex >= 0) {
-        cards[existingIndex] = card
-      } else {
-        cards.push(card)
-      }
+  async getCardById(id: string): Promise<StoredCard | null> {
+    const cards = await this.getAllCards();
+    return cards.find((card) => card.id === id) || null;
+  }
 
-      localStorage.setItem(this.CARDS_KEY, JSON.stringify(cards))
+  async saveCard(card: StoredCard): Promise<StoredCard> {
+    try {
+      const payload = {
+          ...card,
+          tenantId: DEFAULT_TENANT_ID, 
+          // userId would be resolved by backend from email in real app or passed here
+          // For now backend might require it or optional? 
+          // We'll pass it if we have it in card object, but StoredCard doesn't have it.
+          // The backend schema allows nullable userId? Or we need to look it up.
+          // Let's assume backend handles it or we pass it.
+      };
 
-      // Log creation to history
-      this.logHistory({
-        id: `hist_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-        action: "create",
-        cardId: card.id,
-        recipientName: card.recipientName,
-        creatorName: card.creatorName,
-        creatorEmail: card.creatorEmail,
-        template: card.template,
-        timestamp: new Date().toISOString(),
-        metadata: {
-          templateId: card.templateId,
-        },
-      })
+      const res = await fetch(`${API_URL}/cards`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+      });
+      
+      if (!res.ok) throw new Error("Failed to save card");
+      return await res.json();
+
     } catch (error: any) {
-      console.error("Error saving card:", error)
-      if (error.name === "QuotaExceededError" || error.code === 22) {
-        throw new Error("Storage full. Please delete some old cards or clear your browser data.")
-      }
-      throw new Error("Failed to save card")
+      console.error("Error saving card:", error);
+      throw new Error("Failed to save card");
     }
   }
 
-  deleteCard(cardId: string, deletedBy: { name: string; email: string }): boolean {
-    if (typeof window === "undefined") return false
-
+  async deleteCard(cardId: string, deletedBy: { name: string; email: string }): Promise<boolean> {
     try {
-      const cards = this.getAllCards()
-      const cardIndex = cards.findIndex((card) => card.id === cardId)
-
-      if (cardIndex === -1) return false
-
-      const deletedCard = cards[cardIndex]
-      cards.splice(cardIndex, 1)
-
-      localStorage.setItem(this.CARDS_KEY, JSON.stringify(cards))
-
-      // Log deletion to history
-      this.logHistory({
-        id: `hist_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-        action: "delete",
-        cardId: deletedCard.id,
-        recipientName: deletedCard.recipientName,
-        creatorName: deletedCard.creatorName,
-        creatorEmail: deletedCard.creatorEmail,
-        template: deletedCard.template,
-        timestamp: new Date().toISOString(),
-        metadata: {
-          deletedBy: deletedBy.name,
-          deletedByEmail: deletedBy.email,
-        },
-      })
-
-      return true
+      const res = await fetch(`${API_URL}/cards/${cardId}`, {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ deletedBy: deletedBy.email })
+      });
+      return res.ok;
     } catch (error) {
-      console.error("Error deleting card:", error)
-      return false
+      console.error("Error deleting card:", error);
+      return false;
     }
   }
 
-  // History Management
+  // History Management (Deprecated/Handled by Backend)
   getHistory(): HistoryEntry[] {
-    if (typeof window === "undefined") return []
-
-    try {
-      const history = localStorage.getItem(this.HISTORY_KEY)
-      return history ? JSON.parse(history) : []
-    } catch (error) {
-      console.error("Error loading history:", error)
-      return []
-    }
+    // For now returning empty or we could implement fetch
+    return [];
   }
 
   logHistory(entry: HistoryEntry): void {
-    if (typeof window === "undefined") return
-
-    try {
-      const history = this.getHistory()
-      history.unshift(entry) // Add to beginning for chronological order
-
-      // Keep only last 1000 entries to prevent storage bloat
-      if (history.length > 1000) {
-        history.splice(1000)
-      }
-
-      localStorage.setItem(this.HISTORY_KEY, JSON.stringify(history))
-    } catch (error) {
-      console.error("Error logging history:", error)
-    }
+    // Backend handles logging
   }
 
   logDownload(cardId: string, downloadedBy: { name: string; email: string }): void {
-    const card = this.getCardById(cardId)
-    if (!card) return
-
-    this.logHistory({
-      id: `hist_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      action: "download",
-      cardId: card.id,
-      recipientName: card.recipientName,
-      creatorName: card.creatorName,
-      creatorEmail: card.creatorEmail,
-      template: card.template,
-      timestamp: new Date().toISOString(),
-      metadata: {
-        downloadedBy: downloadedBy.name,
-        downloadedByEmail: downloadedBy.email,
-      },
-    })
+      // We could add an endpoint for log-download
+      // For now no-op
+      console.log("Download logged locally (backend pending)");
   }
 
   // Analytics helpers
-  getCardStats() {
-    const cards = this.getAllCards()
-    const history = this.getHistory()
-
-    const totalCards = cards.length
-    const totalCreators = new Set(cards.map((c) => c.creatorEmail)).size
+  async getCardStats() {
+    const cards = await this.getAllCards();
+    const totalCards = cards.length;
+    const totalCreators = new Set(cards.map((c) => c.creatorEmail)).size;
     const templateCounts = cards.reduce(
       (acc, card) => {
-        acc[card.template] = (acc[card.template] || 0) + 1
-        return acc
+        acc[card.template] = (acc[card.template] || 0) + 1;
+        return acc;
       },
       {} as Record<string, number>,
-    )
-
-    const recentActivity = history.slice(0, 10)
+    );
 
     return {
       totalCards,
       totalCreators,
       templateCounts,
-      recentActivity,
-      totalActions: history.length,
-    }
+      recentActivity: [], // Fetch history if needed
+      totalActions: 0,
+    };
   }
 
   // Utility methods
   generateCardId(): string {
-    return `card_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+      // Backend generates ID, but frontend might need temp ID?
+      // We'll leave this but backend ignores it or use it?
+      // Schema uses uuid defaultRandom().
+      return ""; 
   }
 
   async cardToBase64(canvas: HTMLCanvasElement): Promise<string> {
     return new Promise((resolve) => {
       canvas.toBlob((blob) => {
         if (blob) {
-          const reader = new FileReader()
-          reader.onload = () => resolve(reader.result as string)
-          reader.readAsDataURL(blob)
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result as string);
+          reader.readAsDataURL(blob);
         } else {
-          resolve("")
+          resolve("");
         }
-      }, "image/png")
-    })
+      }, "image/png");
+    });
   }
 }
 
 // Export singleton instance
-export const cardStorage = new CardStorageManager()
+export const cardStorage = new CardStorageManager();

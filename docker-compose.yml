@@ -1,0 +1,26 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: apps/backend/Dockerfile
+    container_name: reflecto-backend
+    ports:
+      - "4000:4000"
+    env_file:
+      - ./apps/backend/.env
+    restart: always
+
+  frontend:
+    build:
+      context: .
+      dockerfile: apps/frontend/Dockerfile
+    container_name: reflecto-frontend
+    ports:
+      - "3000:3000"
+    env_file:
+      - ./apps/frontend/.env.production
+    depends_on:
+      - backend
+    restart: always

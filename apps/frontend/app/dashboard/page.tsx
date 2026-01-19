@@ -194,7 +194,8 @@ export default function DashboardPage() {
         image: formData.image,
       })
 
-      const cardId = cardStorage.generateCardId()
+      // ID generation handled by backend save
+
       const cardData = {
         template: selectedTemplate,
         recipientName: formData.recipientName,
@@ -237,7 +238,7 @@ export default function DashboardPage() {
           })
 
           const storedCard: StoredCard = {
-            id: cardId,
+            id: "", // Backend will generate ID
             recipientName: formData.recipientName,
             creatorName: formData.creatorName,
             creatorEmail: loggedInUser?.email || "",
@@ -247,10 +248,14 @@ export default function DashboardPage() {
             createdAt: new Date().toISOString(),
             thumbnailUrl: thumbnailBase64,
             cardData: cardData,
-            // Removed imageBlob to save space, using thumbnailUrl is enough for preview
           }
 
-          cardStorage.saveCard(storedCard)
+          const savedCard = await cardStorage.saveCard(storedCard)
+          
+          // Use the ID from backend for any immediate needs if necessary, 
+          // or just proceed. 
+          // Note: If we need the ID for Google Sheets log or something else, use savedCard.id
+
         }
       }
 
@@ -287,7 +292,7 @@ export default function DashboardPage() {
 
       if (loggedInUser) {
         // Find the card ID for logging
-        const cards = cardStorage.getAllCards()
+        const cards = await cardStorage.getAllCards()
         const card = cards.find(
           (c) => c.recipientName === generatedCardData.recipientName && c.creatorEmail === loggedInUser.email,
         )

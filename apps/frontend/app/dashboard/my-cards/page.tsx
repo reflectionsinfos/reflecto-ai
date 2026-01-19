@@ -55,17 +55,28 @@ export default function MyCardsPage() {
     setCurrentUser(user)
 
     if (user) {
-      if (userIsAdmin) {
-        const allCards = cardStorage.getAllCards()
-        const sortedCards = allCards.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-        setCards(sortedCards)
-        setFilteredCards(sortedCards)
-      } else {
-        const userCards = cardStorage.getCardsByUser(user.email)
-        const sortedCards = userCards.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-        setCards(sortedCards)
-        setFilteredCards(sortedCards)
+      const fetchCards = async () => {
+        try {
+          if (userIsAdmin) {
+            const allCards = await cardStorage.getAllCards()
+            const sortedCards = allCards.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+            setCards(sortedCards)
+            setFilteredCards(sortedCards)
+          } else {
+            const userCards = await cardStorage.getCardsByUser(user.email)
+            const sortedCards = userCards.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+            setCards(sortedCards)
+            setFilteredCards(sortedCards)
+          }
+        } catch (error) {
+          toast({
+            title: "Error",
+            description: "Failed to load cards. Please try again.",
+            variant: "destructive",
+          })
+        }
       }
+      fetchCards()
     }
   }, [userIsAdmin])
 
@@ -124,11 +135,11 @@ export default function MyCardsPage() {
 
     setIsDeleting(true)
     try {
-      const success = cardStorage.deleteCard(deleteCard.id, currentUser)
+      const success = await cardStorage.deleteCard(deleteCard.id, currentUser)
 
       if (success) {
         if (userIsAdmin) {
-          const allCards = cardStorage.getAllCards()
+          const allCards = await cardStorage.getAllCards()
           const sortedCards = allCards.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
           setCards(sortedCards)
           setFilteredCards(
@@ -143,7 +154,7 @@ export default function MyCardsPage() {
             }),
           )
         } else {
-          const userCards = cardStorage.getCardsByUser(currentUser.email)
+          const userCards = await cardStorage.getCardsByUser(currentUser.email)
           const sortedCards = userCards.sort(
             (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
           )

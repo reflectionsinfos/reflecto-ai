@@ -45,14 +45,14 @@ export default function AnalyticsPage() {
     loadAnalyticsData()
   }, [router])
 
-  const loadAnalyticsData = () => {
+  const loadAnalyticsData = async () => {
     setIsLoading(true)
     try {
-      const stats = cardStorage.getCardStats()
+      const stats = await cardStorage.getCardStats()
       setAnalyticsData(stats)
 
       // Calculate user statistics
-      const cards = cardStorage.getAllCards()
+      const cards = await cardStorage.getAllCards()
       const userMap = new Map<string, UserStats>()
 
       cards.forEach((card) => {
