@@ -8,7 +8,7 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Award, LogOut, Home, FileText, BarChart3 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
-import { getCurrentUser, isAdmin, logout, type User } from "@/lib/auth"
+import { useAuth } from "@/hooks/use-auth" // Use new hook
 
 export default function DashboardLayout({
   children,
@@ -18,33 +18,23 @@ export default function DashboardLayout({
   const router = useRouter()
   const pathname = usePathname()
   const { toast } = useToast()
-  const [isAuthenticated, setIsAuthenticated] = useState(false)
-  const [currentUser, setCurrentUser] = useState<User | null>(null)
-  const [userIsAdmin, setUserIsAdmin] = useState(false)
+  
+  // Use Azure Auth Hook
+  const { user, isAuthenticated, isLoading, logout } = useAuth()
+  
+  // Determine admin status from Azure user roles (or default to false for now)
+  // You might map specific Azure AD roles here later
+  const userIsAdmin = user?.role === "admin" 
 
   useEffect(() => {
-    const authStatus = localStorage.getItem("isAuthenticated")
-    const user = getCurrentUser()
-
-    if (authStatus === "true" && user) {
-      setIsAuthenticated(true)
-      setCurrentUser(user)
-      setUserIsAdmin(isAdmin())
-    } else {
-      router.push("/")
+    // Only redirect if we are done loading and NOT authenticated
+    if (!isLoading && !isAuthenticated) {
+        router.push("/")
     }
-  }, [router])
+  }, [isLoading, isAuthenticated, router])
 
   const handleLogout = () => {
     logout()
-
-    toast({
-      title: "Logged Out",
-      description: "You have been successfully logged out",
-      duration: 3000,
-    })
-
-    router.push("/")
   }
 
   const isActivePath = (path: string) => {
@@ -54,7 +44,7 @@ export default function DashboardLayout({
     return pathname.startsWith(path)
   }
 
-  if (!isAuthenticated) {
+  if (isLoading || !isAuthenticated) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
@@ -132,7 +122,7 @@ export default function DashboardLayout({
 
           <div className="flex items-center gap-4">
             <div className="text-right">
-              <span className="text-sm font-medium text-foreground">{currentUser?.name || "User"}</span>
+              <span className="text-sm font-medium text-foreground">{user?.name || "User"}</span>
               {userIsAdmin && <div className="text-xs text-primary font-medium">Admin</div>}
             </div>
             <Button

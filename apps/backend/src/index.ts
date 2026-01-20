@@ -105,23 +105,83 @@ app.get("/api/cards/user/:email", async (req, res) => {
 });
 
 
-app.post("/api/cards", async (req, res) => {
+// ... imports
+import { initializeAuth, authenticate } from "./middleware/auth";
+import { ensureUserAndTenant } from "./db/utils";
+
+// ... app setup
+app.use(initializeAuth());
+
+// ...
+
+// Cards
+// Protect Card Creation
+// Protect Card Creation
+app.post("/api/cards", authenticate(), async (req, res) => {
   try {
     const cardData = req.body;
     
-    // Sanitize data
-    if (cardData.id === "") {
-        delete cardData.id;
+    // User info is now in req.user (from token)
+    const user = req.user as any; 
+    console.log("Debug: req.user received:", user);
+
+    let tenantId: string | undefined;
+    let userId: string | undefined;
+    
+    if (user) {
+        try {
+            console.log("Debug: Attempting to sync user/tenant...");
+            // Sync user/tenant to DB
+            const syncResult = await ensureUserAndTenant({
+                email: user.email,
+                name: user.name,
+                tid: user.tid
+            });
+            tenantId = syncResult.tenantId;
+            userId = syncResult.userId;
+            
+            console.log("Debug: Sync successful. Local TenantID:", tenantId, "Local UserID:", userId); 
+
+            // Enforce Creator Info from Token
+            cardData.creatorName = user.name || cardData.creatorName;
+            cardData.creatorEmail = user.email || cardData.creatorEmail;
+        } catch (syncError) {
+            console.error("User Sync Error:", syncError);
+            return res.status(500).json({ error: "Failed to synchronize user profile" });
+        }
+    } else {
+        console.log("Debug: No user object found in request!");
     }
-    
-    if (cardData.createdAt && typeof cardData.createdAt === 'string') {
-        cardData.createdAt = new Date(cardData.createdAt);
+
+    if (!userId || !tenantId) {
+        console.error("Debug: Missing UserID or TenantID despite sync attempt. userId:", userId, "tenantId:", tenantId);
+        return res.status(500).json({ error: "Failed to resolve user or tenant. Please try again." });
     }
-    
-    // Ensure tenantId is present (mocking/forcing for now if not sent)
-    // In real app, middleware extracts tenant from auth token
-    
-    const [card] = await db.insert(kudosCards).values(cardData).returning();
+
+    // Construct explicit insert object to avoid Drizzle ignoring properties or mutation issues
+    // Note: Do NOT pass createdAt - let the database default handle it
+    const insertValues = {
+        recipientName: cardData.recipientName,
+        creatorName: cardData.creatorName,
+        creatorEmail: cardData.creatorEmail,
+        template: cardData.template,
+        templateId: cardData.templateId,
+        message: cardData.message,
+        thumbnailUrl: cardData.thumbnailUrl,
+        cardData: cardData.cardData,
+        // imageBlob: cardData.imageBlob, // Omit to reduce payload size
+        tenantId: tenantId, // Explicitly set from ensureUserAndTenant
+        userId: userId,     // Explicitly set from ensureUserAndTenant
+        // createdAt is omitted - uses database default
+    };
+
+    console.log("Debug: Final insertValues (without imageBlob):", {
+        ...insertValues,
+        thumbnailUrl: insertValues.thumbnailUrl ? `[${insertValues.thumbnailUrl.length} chars]` : null,
+        cardData: "[object]"
+    });
+
+    const [card] = await db.insert(kudosCards).values(insertValues).returning();
     
     // Log history
     await db.insert(kudosHistory).values({
@@ -137,7 +197,21 @@ app.post("/api/cards", async (req, res) => {
     res.json(card);
   } catch (error: any) {
     console.error("Save card error:", error);
-    res.status(500).json({ error: error.message });
+    // PostgreSQL errors from pg driver are nested in error.cause
+    const pgError = error.cause || error;
+    const errorDetails = {
+      error: error.message || "Unknown error",
+      code: pgError.code,
+      detail: pgError.detail,
+      hint: pgError.hint,
+      constraint: pgError.constraint,
+      table: pgError.table,
+      column: pgError.column,
+      // Also log the full error for debugging
+      stack: error.stack?.split('\n').slice(0, 5).join('\n')
+    };
+    console.error("Error details:", JSON.stringify(errorDetails, null, 2));
+    res.status(500).json(errorDetails);
   }
 });
 

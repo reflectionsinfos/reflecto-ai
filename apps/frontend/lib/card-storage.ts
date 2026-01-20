@@ -1,3 +1,5 @@
+import { apiClient } from "./api-client";
+
 export interface StoredCard {
   id: string
   recipientName: string
@@ -23,47 +25,17 @@ export interface HistoryEntry {
   timestamp: string
   metadata?: any
 }
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api";
 
 // Assuming we use the default tenant/admin for now, or fetch from context
 // For this iteration, we'll hardcode the ID seeded or fetch safely
 const DEFAULT_TENANT_ID = "75e9f297-3090-477c-ac59-e3a4614380b4"; // From seed output
 const DEFAULT_USER_EMAIL = "admin@kudoscard.com";
 
-export interface StoredCard {
-  id: string
-  recipientName: string
-  creatorName: string
-  creatorEmail: string
-  template: string
-  templateId: string
-  message: string
-  createdAt: string
-  thumbnailUrl: string
-  cardData: any
-  imageBlob?: string // Base64 encoded image data
-}
-
-export interface HistoryEntry {
-  id: string
-  action: "create" | "delete" | "download"
-  cardId: string
-  recipientName: string
-  creatorName: string
-  creatorEmail: string
-  template: string
-  timestamp: string
-  metadata?: any
-}
-
 class CardStorageManager {
   // Card Management
   async getAllCards(): Promise<StoredCard[]> {
     try {
-      const res = await fetch(`${API_URL}/cards?tenantId=${DEFAULT_TENANT_ID}`);
-      if (!res.ok) throw new Error("Failed to fetch cards");
-      return await res.json();
+      return await apiClient.get<StoredCard[]>(`/cards?tenantId=${DEFAULT_TENANT_ID}`);
     } catch (error) {
       console.error("Error loading cards:", error);
       return [];
@@ -71,10 +43,9 @@ class CardStorageManager {
   }
 
   async getCardsByUser(userEmail: string): Promise<StoredCard[]> {
+    console.log(`cardStorage.getCardsByUser called for ${userEmail}`);
     try {
-        const res = await fetch(`${API_URL}/cards/user/${userEmail}`);
-        if (!res.ok) throw new Error("Failed to fetch user cards");
-        return await res.json();
+        return await apiClient.get<StoredCard[]>(`/cards/user/${userEmail}`);
     } catch (error) {
         console.error("Error loading user cards:", error);
         return [];
@@ -91,22 +62,9 @@ class CardStorageManager {
       const payload = {
           ...card,
           tenantId: DEFAULT_TENANT_ID, 
-          // userId would be resolved by backend from email in real app or passed here
-          // For now backend might require it or optional? 
-          // We'll pass it if we have it in card object, but StoredCard doesn't have it.
-          // The backend schema allows nullable userId? Or we need to look it up.
-          // Let's assume backend handles it or we pass it.
       };
 
-      const res = await fetch(`${API_URL}/cards`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload)
-      });
-      
-      if (!res.ok) throw new Error("Failed to save card");
-      return await res.json();
-
+      return await apiClient.post<StoredCard>("/cards", payload);
     } catch (error: any) {
       console.error("Error saving card:", error);
       throw new Error("Failed to save card");
@@ -115,12 +73,8 @@ class CardStorageManager {
 
   async deleteCard(cardId: string, deletedBy: { name: string; email: string }): Promise<boolean> {
     try {
-      const res = await fetch(`${API_URL}/cards/${cardId}`, {
-          method: "DELETE",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ deletedBy: deletedBy.email })
-      });
-      return res.ok;
+      await apiClient.delete(`/cards/${cardId}`, { deletedBy: deletedBy.email });
+      return true;
     } catch (error) {
       console.error("Error deleting card:", error);
       return false;

@@ -23,10 +23,7 @@ export async function logKudosToSheets(entry: KudosLogEntry): Promise<void> {
     // Simulate API call delay
     await new Promise((resolve) => setTimeout(resolve, 500))
 
-    // Store in localStorage as fallback for demo
-    const existingLogs = JSON.parse(localStorage.getItem("kudosLogs") || "[]")
-    existingLogs.push(entry)
-    localStorage.setItem("kudosLogs", JSON.stringify(existingLogs))
+
 
     console.log("Successfully logged kudos card creation")
   } catch (error) {

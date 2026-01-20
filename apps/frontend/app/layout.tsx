@@ -3,6 +3,7 @@ import type { Metadata } from "next"
 import { DM_Sans } from "next/font/google"
 import "./globals.css"
 import { Toaster } from "@/components/ui/toaster"
+import { AuthProvider } from "@/components/auth-provider"
 
 const dmSans = DM_Sans({
   subsets: ["latin"],
@@ -25,8 +26,10 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${dmSans.variable} antialiased dark`}>
       <body>
-        {children}
-        <Toaster />
+        <AuthProvider>
+          {children}
+          <Toaster />
+        </AuthProvider>
       </body>
     </html>
   )

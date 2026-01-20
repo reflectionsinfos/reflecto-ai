@@ -24,7 +24,7 @@ import {
 import { generateKudosCard, generateKudosCardToCanvas } from "@/lib/image-generator"
 import { logToGoogleSheets } from "@/lib/google-sheets"
 import { useToast } from "@/hooks/use-toast"
-import { getCurrentUser, type User } from "@/lib/auth"
+import { useAuth, User } from "@/hooks/use-auth" // Use new hook
 import { cardStorage, type StoredCard } from "@/lib/card-storage"
 
 const templates = [
@@ -110,8 +110,10 @@ const preGeneratedMessages = {
 
 export default function DashboardPage() {
   const { toast } = useToast()
+  const { user } = useAuth() // Get user from hook
+
   const [selectedTemplate, setSelectedTemplate] = useState(templates[0])
-  const [loggedInUser, setLoggedInUser] = useState<User | null>(null)
+  // const [loggedInUser, setLoggedInUser] = useState<User | null>(null)
   const [formData, setFormData] = useState({
     recipientName: "",
     message: "",
@@ -130,13 +132,12 @@ export default function DashboardPage() {
   const [generatedCardData, setGeneratedCardData] = useState<any>(null)
   const [isSendingEmail, setIsSendingEmail] = useState(false)
 
+  // Sync creator name when user loads
   useEffect(() => {
-    const user = getCurrentUser()
     if (user) {
-      setLoggedInUser(user)
-      setFormData((prev) => ({ ...prev, creatorName: user.name }))
+      setFormData((prev) => ({ ...prev, creatorName: user.name || "" }))
     }
-  }, [])
+  }, [user])
 
   const handleInputChange = (field: string, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }))
@@ -241,7 +242,7 @@ export default function DashboardPage() {
             id: "", // Backend will generate ID
             recipientName: formData.recipientName,
             creatorName: formData.creatorName,
-            creatorEmail: loggedInUser?.email || "",
+            creatorEmail: user?.email || "",
             template: selectedTemplate.name,
             templateId: selectedTemplate.id,
             message: formData.message,
@@ -290,14 +291,14 @@ export default function DashboardPage() {
     try {
       await generateKudosCard(generatedCardData)
 
-      if (loggedInUser) {
+      if (user) {
         // Find the card ID for logging
         const cards = await cardStorage.getAllCards()
         const card = cards.find(
-          (c) => c.recipientName === generatedCardData.recipientName && c.creatorEmail === loggedInUser.email,
+          (c) => c.recipientName === generatedCardData.recipientName && c.creatorEmail === user.email,
         )
         if (card) {
-          cardStorage.logDownload(card.id, loggedInUser)
+          cardStorage.logDownload(card.id, user)
         }
       }
 

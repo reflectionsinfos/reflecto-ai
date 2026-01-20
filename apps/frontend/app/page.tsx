@@ -10,6 +10,8 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Award, Eye, EyeOff } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
+import { useAuth } from "@/hooks/use-auth"
+import { useEffect } from "react"
 
 const DUMMY_USERS = [
   {
@@ -35,6 +37,32 @@ const DUMMY_USERS = [
 export default function LoginPage() {
   const { toast } = useToast()
   const router = useRouter()
+  // Integrate Azure Auth Hook
+  const { login: azureLogin, isAuthenticated, user: azureUser, isLoading: isAuthLoading, error: authError } = useAuth()
+
+  useEffect(() => {
+    // If authenticated via Azure, redirect
+    if (isAuthenticated && azureUser) {
+       toast({
+        title: "Welcome back!",
+        description: `Signed in as ${azureUser.name}`,
+        duration: 3000,
+      })
+      router.push("/dashboard")
+    }
+    if (authError) {
+        toast({
+            title: "Authentication Error",
+            description: authError.message,
+            variant: "destructive"
+        })
+    }
+  }, [isAuthenticated, azureUser, router, authError, toast])
+
+  const handleAzureLogin = async () => {
+    await azureLogin()
+  }
+
   const [formData, setFormData] = useState({
     email: "",
     password: "",
@@ -126,84 +154,62 @@ export default function LoginPage() {
             <p className="text-sm text-muted-foreground">Access your recognition dashboard</p>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleLogin} className="space-y-4">
-              <div>
-                <Label htmlFor="email" className="text-sm font-semibold text-foreground mb-2 block">
-                  Email Address
-                </Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="Enter your email"
-                  value={formData.email}
-                  onChange={(e) => handleInputChange("email", e.target.value)}
-                  className={`h-11 bg-input border-border ${errors.email ? "border-destructive" : "focus:ring-primary focus:border-primary"}`}
-                  disabled={isLoading}
-                />
-                {errors.email && <p className="text-xs text-destructive mt-1">{errors.email}</p>}
-              </div>
-
-              <div>
-                <Label htmlFor="password" className="text-sm font-semibold text-foreground mb-2 block">
-                  Password
-                </Label>
-                <div className="relative">
-                  <Input
-                    id="password"
-                    type={showPassword ? "text" : "password"}
-                    placeholder="Enter your password"
-                    value={formData.password}
-                    onChange={(e) => handleInputChange("password", e.target.value)}
-                    className={`h-11 bg-input border-border pr-10 ${errors.password ? "border-destructive" : "focus:ring-primary focus:border-primary"}`}
-                    disabled={isLoading}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                    disabled={isLoading}
-                  >
-                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
-                </div>
-                {errors.password && <p className="text-xs text-destructive mt-1">{errors.password}</p>}
-              </div>
-
+            {/* Azure AD Login Section */}
+            <div className="space-y-4">
               <Button
-                type="submit"
-                className="w-full h-11 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold shadow-md"
-                disabled={isLoading}
+                type="button"
+                onClick={handleAzureLogin}
+                className="w-full h-11 bg-[#2F2F2F] hover:bg-[#3F3F3F] text-white font-semibold shadow-md flex items-center justify-center gap-2 border border-gray-600"
+                disabled={isAuthLoading}
               >
-                {isLoading ? "Signing In..." : "Sign In"}
+                {/* Microsoft Logo SVG */}
+                <svg className="w-5 h-5" viewBox="0 0 23 23" xmlns="http://www.w3.org/2000/svg">
+                  <path fill="#f35325" d="M1 1h10v10H1z"/>
+                  <path fill="#81bc06" d="M12 1h10v10H12z"/>
+                  <path fill="#05a6f0" d="M1 12h10v10H1z"/>
+                  <path fill="#ffba08" d="M12 12h10v10H12z"/>
+                </svg>
+                {isAuthLoading ? "Connecting..." : "Sign in with Microsoft"}
               </Button>
-            </form>
 
-            <div className="mt-6 p-4 bg-muted/50 rounded-lg border border-border">
-              <p className="text-xs text-muted-foreground mb-3 font-medium">Quick Login - Demo Accounts:</p>
-              <div className="space-y-2">
-                {DUMMY_USERS.map((user) => (
-                  <button
-                    key={user.email}
-                    type="button"
-                    onClick={() => {
-                      setFormData({ email: user.email, password: user.password })
-                      setErrors({})
-                    }}
-                    className="w-full p-2 text-left bg-background hover:bg-muted/80 border border-border rounded-md transition-colors group"
-                    disabled={isLoading}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-xs font-medium text-foreground">{user.name}</p>
-                        <p className="text-xs text-muted-foreground">{user.email}</p>
-                      </div>
-                      <span className="text-xs px-2 py-1 rounded-full bg-primary/10 text-primary font-medium">
-                        {user.role === "admin" ? "Admin" : "User"}
-                      </span>
-                    </div>
-                  </button>
-                ))}
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <span className="w-full border-t border-border" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-background px-2 text-muted-foreground">Or continue with demo</span>
+                </div>
               </div>
+
+              {/* Legacy/Demo Login Form */}
+              <form onSubmit={handleLogin} className="space-y-4">
+                 {/* ... Keep existing form fields for dev fallback ... */}
+                 <div>
+                    <Label htmlFor="email" className="text-sm font-semibold text-foreground mb-2 block">Email</Label>
+                    <Input 
+                        id="email" 
+                        type="email" 
+                        value={formData.email} 
+                        onChange={(e) => handleInputChange("email", e.target.value)}
+                        className="h-11 bg-input border-border"
+                        placeholder="demo@example.com"
+                    />
+                 </div>
+                 <div>
+                    <Label htmlFor="password" className="text-sm font-semibold text-foreground mb-2 block">Password</Label>
+                    <Input 
+                        id="password" 
+                        type="password" 
+                        value={formData.password}
+                        onChange={(e) => handleInputChange("password", e.target.value)}
+                        className="h-11 bg-input border-border"
+                        placeholder="password123"
+                    />
+                 </div>
+                 <Button type="submit" disabled={isLoading} className="w-full h-11 bg-primary">
+                    {isLoading ? "Signing In..." : "Sign In (Demo)"}
+                 </Button>
+              </form>
             </div>
           </CardContent>
         </Card>

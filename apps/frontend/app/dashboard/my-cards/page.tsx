@@ -18,7 +18,7 @@ import {
   ChevronLeft,
   ChevronRight,
 } from "lucide-react"
-import { getCurrentUser, isAdmin } from "@/lib/auth"
+import { useAuth } from "@/hooks/use-auth"
 import { useToast } from "@/hooks/use-toast"
 import { cardStorage, type StoredCard } from "@/lib/card-storage"
 
@@ -37,7 +37,7 @@ interface KudosCard {
 
 export default function MyCardsPage() {
   const { toast } = useToast()
-  const [currentUser, setCurrentUser] = useState<any>(null)
+  const { user: currentUser, isLoading: isAuthLoading } = useAuth()
   const [cards, setCards] = useState<StoredCard[]>([])
   const [filteredCards, setFilteredCards] = useState<StoredCard[]>([])
   const [searchTerm, setSearchTerm] = useState("")
@@ -48,25 +48,28 @@ export default function MyCardsPage() {
   const [currentPage, setCurrentPage] = useState(1)
   const [cardsPerPage] = useState(12)
 
-  const userIsAdmin = isAdmin()
+  const userIsAdmin = currentUser?.role === "admin"
+
+  console.log("MyCardsPage Render: ", { currentUser, isAuthLoading, userIsAdmin });
 
   useEffect(() => {
-    const user = getCurrentUser()
-    setCurrentUser(user)
-
-    if (user) {
+    if (currentUser) {
+      console.log("MyCardsPage Effect Triggered. Fetching cards...");
       const fetchCards = async () => {
         try {
           if (userIsAdmin) {
+            console.log("Fetching all cards (Admin)...");
             const allCards = await cardStorage.getAllCards()
             const sortedCards = allCards.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
             setCards(sortedCards)
             setFilteredCards(sortedCards)
           } else {
-            const userCards = await cardStorage.getCardsByUser(user.email)
-            const sortedCards = userCards.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-            setCards(sortedCards)
-            setFilteredCards(sortedCards)
+            if (currentUser?.email) {
+                const userCards = await cardStorage.getCardsByUser(currentUser.email)
+                const sortedCards = userCards.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+                setCards(sortedCards)
+                setFilteredCards(sortedCards)
+            }
           }
         } catch (error) {
           toast({
@@ -78,7 +81,7 @@ export default function MyCardsPage() {
       }
       fetchCards()
     }
-  }, [userIsAdmin])
+  }, [currentUser, userIsAdmin])
 
   useEffect(() => {
     let filtered = cards
