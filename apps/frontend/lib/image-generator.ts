@@ -11,6 +11,7 @@ interface KudosCardData {
   message: string
   creatorName: string
   image?: File | null
+  images?: File[] | null
 }
 
 export async function generateKudosCardToCanvas(canvas: HTMLCanvasElement, data: KudosCardData): Promise<void> {
@@ -124,8 +125,12 @@ async function generateCustomerCentricChampion(
   ctx.roundRect(photoX, photoY, photoWidth, photoHeight, cornerRadius)
   ctx.fill()
 
-  // If user uploaded an image, draw it
-  if (data.image) {
+  // Draw employee photo or team grid
+  if (data.images && data.images.length > 1) {
+      // For customer centricity, the photo placement is same
+      await drawTeamPhotos(ctx, data, photoX, photoY, photoWidth, photoHeight, cornerRadius)
+  } else if (data.image || (data.images && data.images.length === 1)) {
+    const file = data.image || (data.images && data.images[0]) || null;
     try {
       const img = new Image()
       img.crossOrigin = "anonymous"
@@ -329,8 +334,16 @@ async function generateAgilityChampion(
   const trophyHeight = 1300
   ctx.drawImage(trophyImg, 0, 20, trophyWidth, trophyHeight)
 
-  // Draw employee photo
-  await drawEmployeePhoto(ctx, data, 500, 450, 400, 400, 20)
+  // Draw employee photo or team grid
+  if (data.images && data.images.length > 1) {
+    await drawTeamPhotos(ctx, data, 500, 450, 400, 400, 20)
+  } else {
+    // Single image fallback (either data.image or data.images[0])
+    // Ensure we handle the case where data.image might be null but data.images has 1 file
+    const file = data.image || (data.images && data.images[0]) || null;
+    // Create a temp data object with just the single file for the helper
+    await drawEmployeePhoto(ctx, { ...data, image: file }, 500, 450, 400, 400, 20)
+  }
 
   // Draw content
   ctx.fillStyle = "#ffffff"
@@ -388,7 +401,13 @@ async function generateContinuousImprovementChampion(
   })
 
   ctx.drawImage(trophyImg, 0, 20, 990, 1300)
-  await drawEmployeePhoto(ctx, data, 500, 450, 400, 400, 20)
+  
+  if (data.images && data.images.length > 1) {
+      await drawTeamPhotos(ctx, data, 500, 450, 400, 400, 20)
+  } else {
+      const file = data.image || (data.images && data.images[0]) || null;
+      await drawEmployeePhoto(ctx, { ...data, image: file }, 500, 450, 400, 400, 20)
+  }
 
   ctx.fillStyle = "#ffffff"
   ctx.font = `700 56px ${poppinsFont}`
@@ -445,7 +464,13 @@ async function generateCollaborationChampion(
   })
 
   ctx.drawImage(trophyImg, 0, 20, 990, 1300)
-  await drawEmployeePhoto(ctx, data, 500, 450, 400, 400, 20)
+  
+  if (data.images && data.images.length > 1) {
+      await drawTeamPhotos(ctx, data, 500, 450, 400, 400, 20)
+  } else {
+      const file = data.image || (data.images && data.images[0]) || null;
+      await drawEmployeePhoto(ctx, { ...data, image: file }, 500, 450, 400, 400, 20)
+  }
 
   ctx.fillStyle = "#ffffff"
   ctx.font = `700 56px ${poppinsFont}`
@@ -660,4 +685,110 @@ async function drawEmployeePhoto(
     ctx.textAlign = "center"
     ctx.fillText("👤", photoX + photoWidth / 2, photoY + photoHeight / 2 + 15)
   }
+}
+
+async function drawTeamPhotos(
+  ctx: CanvasRenderingContext2D,
+  data: KudosCardData,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  cornerRadius: number
+): Promise<void> {
+    if (!data.images || data.images.length === 0) return;
+
+    // White frame
+    ctx.fillStyle = "#ffffff"
+    ctx.beginPath()
+    ctx.roundRect(x - 10, y - 10, width + 20, height + 20, cornerRadius + 5)
+    ctx.fill()
+
+    // Photo area background
+    ctx.fillStyle = "#f3f4f6"
+    ctx.beginPath()
+    ctx.roundRect(x, y, width, height, cornerRadius)
+    ctx.fill()
+    ctx.clip() // Clip everything to the main rounded rect
+
+    const count = Math.min(data.images.length, 4); // Handle up to 4 for now (2x2)
+    const imagesToDraw = data.images.slice(0, count);
+    const loadedImages: HTMLImageElement[] = [];
+
+    // Load all images
+    for (const file of imagesToDraw) {
+        try {
+            const img = new Image();
+            img.crossOrigin = "anonymous";
+            await new Promise((resolve, reject) => {
+                img.onload = resolve;
+                img.onerror = reject;
+                img.src = URL.createObjectURL(file);
+            });
+            loadedImages.push(img);
+        } catch (e) {
+            console.error("Failed to load one of team images", e);
+        }
+    }
+
+    if (loadedImages.length === 0) return;
+
+    /*
+      Layouts:
+      2: Split Vertical (Left | Right)
+      3: One Big Left, Two Small Stacked Right
+      4: 2x2 Grid
+    */
+
+    const gap = 4; // Gap between images
+    
+    if (loadedImages.length === 2) {
+        const w = (width - gap) / 2;
+        await drawImageCover(ctx, loadedImages[0], x, y, w, height);
+        await drawImageCover(ctx, loadedImages[1], x + w + gap, y, w, height);
+    } else if (loadedImages.length === 3) {
+        const wLeft = (width - gap) * 0.6; // Left image slightly larger
+        const wRight = width - wLeft - gap;
+        const hRight = (height - gap) / 2;
+        
+        await drawImageCover(ctx, loadedImages[0], x, y, wLeft, height);
+        await drawImageCover(ctx, loadedImages[1], x + wLeft + gap, y, wRight, hRight);
+        await drawImageCover(ctx, loadedImages[2], x + wLeft + gap, y + hRight + gap, wRight, hRight);
+    } else { 
+        // 4 or more -> 2x2 Grid
+        const w = (width - gap) / 2;
+        const h = (height - gap) / 2;
+        
+        await drawImageCover(ctx, loadedImages[0], x, y, w, h);
+        await drawImageCover(ctx, loadedImages[1], x + w + gap, y, w, h);
+        await drawImageCover(ctx, loadedImages[2], x, y + h + gap, w, h);
+        await drawImageCover(ctx, loadedImages[3], x + w + gap, y + h + gap, w, h);
+    }
+}
+
+async function drawImageCover(ctx: CanvasRenderingContext2D, img: HTMLImageElement, x: number, y: number, w: number, h: number) {
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(x, y, w, h);
+    ctx.clip();
+
+    const imgAspect = img.width / img.height;
+    const areaAspect = w / h;
+
+    let drawWidth, drawHeight, drawX, drawY;
+
+    if (imgAspect > areaAspect) {
+        drawHeight = h;
+        drawWidth = drawHeight * imgAspect;
+        drawX = x - (drawWidth - w) / 2;
+        drawY = y;
+    } else {
+        drawWidth = w;
+        drawHeight = drawWidth / imgAspect;
+        drawX = x;
+        drawY = y - (drawHeight - h) / 2;
+    }
+
+    ctx.drawImage(img, drawX, drawY, drawWidth, drawHeight);
+    ctx.restore();
 }

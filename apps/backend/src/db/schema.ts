@@ -23,7 +23,9 @@ export const users = mySchema.table("users", {
 // Kudos Cards Table
 export const kudosCards = mySchema.table("kudos_cards", {
   id: uuid("id").primaryKey().defaultRandom(),
-  recipientName: varchar("recipient_name", { length: 255 }).notNull(),
+  recipientName: varchar("recipient_name", { length: 255 }).notNull(), // For Team, this can be "Team X" or main contact
+  recipientType: varchar("recipient_type", { length: 50 }).default('individual').notNull(), // 'individual' | 'team'
+  recipientEmails: json("recipient_emails").$type<string[]>().default([]).notNull(), // Array of emails
   creatorName: varchar("creator_name", { length: 255 }).notNull(),
   creatorEmail: varchar("creator_email", { length: 255 }).notNull(),
   template: varchar("template", { length: 255 }).notNull(),

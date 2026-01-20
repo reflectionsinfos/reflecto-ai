@@ -27,6 +27,9 @@ import { useToast } from "@/hooks/use-toast"
 import { useAuth, User } from "@/hooks/use-auth" // Use new hook
 import { cardStorage, type StoredCard } from "@/lib/card-storage"
 
+import { RecipientSelector } from "@/components/recipient-selector"
+import type { GraphUser } from "@/lib/graph-service"
+
 const templates = [
   {
     id: "customer-centricity",
@@ -70,7 +73,7 @@ const templates = [
   },
 ]
 
-const preGeneratedMessages = {
+const individualMessages = {
   "customer-centricity": [
     "You put customers first in every choice, turning moments into wins. Your care and empathy make you our Customer Centric Champion!",
     "Every step you take puts customers at heart. Your empathy, clarity and hustle turn needs to smiles-our Customer Centric Champion!",
@@ -108,18 +111,64 @@ const preGeneratedMessages = {
   ],
 }
 
+const teamMessages = {
+  "customer-centricity": [
+    "The team puts customers first, turning moments into wins. Your collective care and empathy make you our Customer Centric Champions!",
+    "Every step the team takes puts customers at heart. Your empathy and hustle turn needs to smiles-our Customer Centric Champions!",
+    "The team's focus shines daily-listening deeply, solving swiftly, delivering delight. You're our Customer Centric Champions!",
+    "The team anticipates needs and delivers joy. Your heart and hustle help customers thrive-our Customer Centric Champions!",
+    "With patience and action, the team turns feedback into impact. Customers feel seen and supported-our Customer Centric Champions!",
+  ],
+  agility: [
+    "The team pivots with purpose and turns challenges into opportunities. Your agility drives our success forward!",
+    "Quick thinking, faster action-the team adapts seamlessly. Your flexibility keeps our organization moving at lightning speed!",
+    "Change energizes the team! Your ability to shift gears and innovate makes you our Agility Champions!",
+    "The team dances with uncertainty and makes it look easy. Your responsive mindset inspires us all to stay nimble!",
+    "From roadblocks to breakthroughs, the team navigates change with grace. Your agile spirit transforms obstacles into stepping stones!",
+  ],
+  "continuous-improvement": [
+    "The team never settles for 'good enough'. Your growth mindset elevates everything you touch!",
+    "Every day the team levels up and lifts others. Your commitment to improvement makes our entire organization stronger!",
+    "The team turns feedback into fuel. Your dedication to growth inspires continuous excellence around you!",
+    "Small steps, big impact-the team consistently refines and enhances. Your improvement journey creates waves of positive change!",
+    "The team questions the status quo. Your relentless pursuit of excellence drives our collective success!",
+  ],
+  collaboration: [
+    "The team brings people together and makes magic happen. Your collaborative spirit turns individual talents into team triumphs!",
+    "The team shares generously and builds bridges. Your teamwork creates connections that strengthen our entire organization!",
+    "The team makes everyone better through partnership. Your collaborative approach transforms good ideas into great results!",
+    "The team unites diverse perspectives. Your ability to foster teamwork creates extraordinary outcomes for all!",
+    "The team builds trust. Your collaborative leadership makes our organization unstoppable together!",
+  ],
+  accountability: [
+    "The team owns its commitments. Your accountability sets the standard for excellence and trust!",
+    "The team takes responsibility and makes things happen. Your reliable leadership inspires confidence in everyone!",
+    "The team stands behind its work. Your accountability creates a culture of trust and high performance!",
+    "The team delivers on promises. Your responsible approach builds the foundation for our collective success!",
+    "The team shows up consistently. Your accountability drives results and earns respect from all around you!",
+  ],
+}
+
 export default function DashboardPage() {
   const { toast } = useToast()
   const { user } = useAuth() // Get user from hook
 
   const [selectedTemplate, setSelectedTemplate] = useState(templates[0])
-  // const [loggedInUser, setLoggedInUser] = useState<User | null>(null)
+  
   const [formData, setFormData] = useState({
+    recipientType: "individual" as "individual" | "team",
+    // recipients stores the Graph User objects
+    recipients: [] as GraphUser[],
+    // recipientName is what's displayed on the card (computed or manual override if we allowed it)
     recipientName: "",
     message: "",
-    creatorName: "", // Will be populated dynamically
+    creatorName: "",
+    // images array for team or individual
+    images: [] as File[],
+    // legacy field for simple checks, syncs with images[0]
     image: null as File | null,
   })
+
   const [isGenerating, setIsGenerating] = useState(false)
   const [showPreview, setShowPreview] = useState(false)
   const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null)
@@ -130,14 +179,33 @@ export default function DashboardPage() {
 
   const [showSuccessModal, setShowSuccessModal] = useState(false)
   const [generatedCardData, setGeneratedCardData] = useState<any>(null)
-  const [isSendingEmail, setIsSendingEmail] = useState(false)
-
+  
   // Sync creator name when user loads
   useEffect(() => {
     if (user) {
       setFormData((prev) => ({ ...prev, creatorName: user.name || "" }))
     }
   }, [user])
+
+  // Sync recipientName based on recipients list
+  useEffect(() => {
+    if (formData.recipients.length === 0) {
+        setFormData(prev => ({ ...prev, recipientName: "" }));
+        return;
+    }
+
+    if (formData.recipientType === "individual") {
+        setFormData(prev => ({ ...prev, recipientName: formData.recipients[0].displayName }));
+    } else {
+        // Team Logic
+        const names = formData.recipients.map(u => u.displayName.split(' ')[0]); // First names
+        if (names.length <= 3) {
+            setFormData(prev => ({ ...prev, recipientName: names.join(", ") }));
+        } else {
+            setFormData(prev => ({ ...prev, recipientName: `Team ${formData.recipients[0].displayName.split(' ')[0]} & Co` }));
+        }
+    }
+  }, [formData.recipients, formData.recipientType]);
 
   const handleInputChange = (field: string, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }))
@@ -146,35 +214,83 @@ export default function DashboardPage() {
     }
   }
 
+  const handleRecipientTypeChange = (type: "individual" | "team") => {
+      setFormData(prev => ({ 
+          ...prev, 
+          recipientType: type,
+          recipients: [], // Reset recipients when switching type for clarity
+          images: [],
+          image: null 
+      }));
+      setErrors({});
+  }
+
+  const handleRecipientsChange = (recipients: GraphUser[]) => {
+      setFormData(prev => ({ ...prev, recipients }));
+      if (errors.recipientName) {
+           setErrors(prev => ({ ...prev, recipientName: "" }));
+      }
+  }
+
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-    if (file) {
-      if (file.size > 5 * 1024 * 1024) {
-        setErrors((prev) => ({ ...prev, image: "Image size must be less than 5MB" }))
-        return
-      }
-      if (!file.type.startsWith("image/")) {
-        setErrors((prev) => ({ ...prev, image: "Please select a valid image file" }))
-        return
-      }
-      setFormData((prev) => ({ ...prev, image: file }))
-      setErrors((prev) => ({ ...prev, image: "" }))
+    const files = event.target.files;
+    if (!files || files.length === 0) return;
+
+    if (formData.recipientType === "individual" && files.length > 1) {
+        setErrors(prev => ({ ...prev, image: "Individual cards can only have one image." }));
+        return;
     }
+
+    // Convert to array
+    const fileList = Array.from(files);
+    
+    // Check sizes
+    const oversized = fileList.some(f => f.size > 5 * 1024 * 1024);
+    if (oversized) {
+        setErrors(prev => ({ ...prev, image: "All images must be less than 5MB" }));
+        return;
+    }
+
+    // Check types
+    const invalidType = fileList.some(f => !f.type.startsWith("image/"));
+    if (invalidType) {
+        setErrors(prev => ({ ...prev, image: "Please select valid image files" }));
+        return;
+    }
+
+    // Update form
+    setFormData(prev => ({
+        ...prev,
+        images: fileList,
+        image: fileList[0] // Set first as legacy image for compatibility
+    }));
+    setErrors(prev => ({ ...prev, image: "" }));
   }
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {}
 
-    if (!formData.recipientName.trim()) {
-      newErrors.recipientName = "Recipient name is required"
+    if (formData.recipients.length === 0) {
+      newErrors.recipientName = "Please select at least one recipient";
     }
+    
+    if (formData.recipientType === "individual" && formData.recipients.length > 1) {
+         newErrors.recipientName = "Individual mode allows only one recipient";
+    }
+
     if (!formData.message.trim()) {
       newErrors.message = "Kudos message is required"
-    } else if (formData.message.length > 130) {
-      newErrors.message = "Message must be 130 characters or less"
+    } else if (formData.message.length > 160) {
+      newErrors.message = "Message must be 160 characters or less"
     }
+
     if (!formData.creatorName.trim()) {
       newErrors.creatorName = "Your name is required"
+    }
+    
+    // Image validation (Optional, but if supplied must be correct count)
+    if (formData.recipientType === "individual" && formData.images.length > 1) {
+        newErrors.image = "Individual cards can only have one image";
     }
 
     setErrors(newErrors)
@@ -186,24 +302,25 @@ export default function DashboardPage() {
 
     setIsGenerating(true)
     try {
-      // Generate the card
-      await generateKudosCard({
-        template: selectedTemplate,
+      const cardDataPayload = {
+        template: {
+            ...selectedTemplate,
+            icon: selectedTemplate.name
+        },
         recipientName: formData.recipientName,
+        designation:  "", // Optional or can be filled if we had data
         message: formData.message,
         creatorName: formData.creatorName,
         image: formData.image,
-      })
+        images: formData.images, // Pass array
+        recipientType: formData.recipientType,
+        recipientEmails: formData.recipients.map(r => r.mail || r.userPrincipalName) // Pass emails
+      }
+
+      // Generate the card (client side visual)
+      await generateKudosCard(cardDataPayload)
 
       // ID generation handled by backend save
-
-      const cardData = {
-        template: selectedTemplate,
-        recipientName: formData.recipientName,
-        message: formData.message,
-        creatorName: formData.creatorName,
-        image: formData.image,
-      }
 
       // Generate thumbnail for storage
       const canvas = document.createElement("canvas")
@@ -212,9 +329,9 @@ export default function DashboardPage() {
       const ctx = canvas.getContext("2d")
 
       if (ctx) {
-        await generateKudosCardToCanvas(canvas, cardData)
+        await generateKudosCardToCanvas(canvas, cardDataPayload)
         
-        // Create a smaller thumbnail canvas
+        // Thumbnail generation...
         const thumbnailCanvas = document.createElement("canvas")
         const thumbnailWidth = 300
         const thumbnailHeight = (canvas.height / canvas.width) * thumbnailWidth
@@ -225,21 +342,27 @@ export default function DashboardPage() {
         if (thumbnailCtx) {
           thumbnailCtx.drawImage(canvas, 0, 0, thumbnailWidth, thumbnailHeight)
           
-          // Convert to JPEG with quality compression
           const thumbnailBase64 = await new Promise<string>((resolve) => {
             thumbnailCanvas.toBlob((blob) => {
-              if (blob) {
-                const reader = new FileReader()
-                reader.onload = () => resolve(reader.result as string)
-                reader.readAsDataURL(blob)
-              } else {
-                resolve("")
-              }
-            }, "image/jpeg", 0.7) // Use JPEG with 70% quality
-          })
-
-          const storedCard: StoredCard = {
-            id: "", // Backend will generate ID
+              resolve(blob ? URL.createObjectURL(blob) : "") 
+            }, "image/jpeg", 0.7)
+          });
+           
+          // Re-implementing FileReader for Base64 (Robust)
+          const realThumbnailBase64 = await new Promise<string>((resolve) => {
+             thumbnailCanvas.toBlob(blob => {
+                 if(blob) {
+                    const reader = new FileReader();
+                    reader.onload = () => resolve(reader.result as string);
+                    reader.readAsDataURL(blob);
+                 } else {
+                     resolve("");
+                 }
+             }, "image/jpeg", 0.7);
+          });
+          
+          const storedCard: StoredCard & { recipientType?: string, recipientEmails?: string[] } = {
+            id: "", 
             recipientName: formData.recipientName,
             creatorName: formData.creatorName,
             creatorEmail: user?.email || "",
@@ -247,20 +370,16 @@ export default function DashboardPage() {
             templateId: selectedTemplate.id,
             message: formData.message,
             createdAt: new Date().toISOString(),
-            thumbnailUrl: thumbnailBase64,
-            cardData: cardData,
+            thumbnailUrl: realThumbnailBase64,
+            cardData: cardDataPayload,
+            recipientType: formData.recipientType,
+            recipientEmails: cardDataPayload.recipientEmails
           }
-
-          const savedCard = await cardStorage.saveCard(storedCard)
           
-          // Use the ID from backend for any immediate needs if necessary, 
-          // or just proceed. 
-          // Note: If we need the ID for Google Sheets log or something else, use savedCard.id
-
+          await cardStorage.saveCard(storedCard)
         }
       }
 
-      // Log to Google Sheets
       await logToGoogleSheets({
         creatorName: formData.creatorName,
         recipientName: formData.recipientName,
@@ -269,7 +388,7 @@ export default function DashboardPage() {
         timestamp: new Date().toISOString(),
       })
 
-      setGeneratedCardData(cardData)
+      setGeneratedCardData(cardDataPayload)
       setShowSuccessModal(true)
     } catch (error) {
       console.error("Error generating card:", error)
@@ -283,25 +402,13 @@ export default function DashboardPage() {
       setIsGenerating(false)
     }
   }
-
-  const handleRedownload = async () => {
+  
+   const handleRedownload = async () => {
     if (!generatedCardData) return
 
     setIsGenerating(true)
     try {
       await generateKudosCard(generatedCardData)
-
-      if (user) {
-        // Find the card ID for logging
-        const cards = await cardStorage.getAllCards()
-        const card = cards.find(
-          (c) => c.recipientName === generatedCardData.recipientName && c.creatorEmail === user.email,
-        )
-        if (card) {
-          cardStorage.logDownload(card.id, user)
-        }
-      }
-
       toast({
         title: "Downloaded!",
         description: "Your kudos card has been downloaded again.",
@@ -324,98 +431,102 @@ export default function DashboardPage() {
     setGeneratedCardData(null)
     setFormData((prev) => ({
       ...prev,
+      recipients: [],
       recipientName: "",
       message: "",
       image: null,
+      images: []
     }))
     setErrors({})
   }
 
-  const handlePreviewGenerated = async () => {
-    if (!validateForm()) return
-
-    setIsGenerating(true)
-    try {
-      const canvas = document.createElement("canvas")
-      canvas.width = 1080
-      canvas.height = 1350
-      const ctx = canvas.getContext("2d")
-
-      if (!ctx) {
-        throw new Error("Could not get canvas context")
-      }
-
-      await generateKudosCardToCanvas(canvas, {
-        template: selectedTemplate,
-        recipientName: formData.recipientName,
-        message: formData.message,
-        creatorName: formData.creatorName,
-        image: formData.image,
-      })
-
-      canvas.toBlob((blob) => {
-        if (blob) {
-          const url = URL.createObjectURL(blob)
-          setPreviewImageUrl(url)
-          setShowPreview(true)
-        }
-      }, "image/png")
-    } catch (error) {
-      console.error("Error generating preview:", error)
-      alert("Failed to generate preview. Please try again.")
-    } finally {
-      setIsGenerating(false)
-    }
-  }
-
+  // Pre-message logic updated
   const handlePreGeneratedMessage = (message: string) => {
     handleInputChange("message", message)
   }
 
   const messageLength = formData.message.length
-  const isFormValid = formData.recipientName && formData.message && formData.creatorName
+  // Validator boolean for UI
+  const isFormValid = formData.recipients.length > 0 && formData.message && formData.creatorName
 
-  const currentMessages = preGeneratedMessages[selectedTemplate.id as keyof typeof preGeneratedMessages] || []
+  // Select message set based on type
+  const currentMessages = (formData.recipientType === 'team' ? teamMessages : individualMessages)[selectedTemplate.id as keyof typeof individualMessages] || []
 
+  // ... Template Switch logic ...
   const hasFormData = () => {
-    return formData.recipientName.trim() !== "" || formData.message.trim() !== "" || formData.image !== null
+    return formData.recipients.length > 0 || formData.message.trim() !== "" || formData.images.length > 0
   }
 
   const handleTemplateSelection = (template: (typeof templates)[0]) => {
-    if (template.id === selectedTemplate.id) return // Same template, no action needed
-
-    if (hasFormData()) {
-      setPendingTemplate(template)
-      setShowConfirmDialog(true)
-    } else {
-      setSelectedTemplate(template)
-    }
+     if (template.id === selectedTemplate.id) return 
+     if (hasFormData()) {
+       setPendingTemplate(template)
+       setShowConfirmDialog(true)
+     } else {
+       setSelectedTemplate(template)
+     }
   }
 
   const handleConfirmTemplateSwitch = () => {
     if (pendingTemplate) {
       setSelectedTemplate(pendingTemplate)
-      // Clear form data when switching templates
       setFormData((prev) => ({
         ...prev,
+        recipients: [],
         recipientName: "",
         message: "",
         image: null,
+        images: []
       }))
       setErrors({})
     }
     setShowConfirmDialog(false)
     setPendingTemplate(null)
   }
-
+  
   const handleCancelTemplateSwitch = () => {
     setShowConfirmDialog(false)
     setPendingTemplate(null)
   }
-
+  
   const handleViewMyCards = () => {
     setShowSuccessModal(false)
     window.location.href = "/dashboard/my-cards"
+  }
+  
+  // Preview logic fallback requires re-implementing `handlePreviewGenerated` similar to `handleGenerateCard`
+  const handlePreviewGenerated = async () => {
+     if (!validateForm()) return
+     setIsGenerating(true)
+     try {
+       const canvas = document.createElement("canvas")
+       canvas.width = 1080
+       canvas.height = 1350
+       const ctx = canvas.getContext("2d")
+       if (!ctx) throw new Error("No Context")
+       
+       await generateKudosCardToCanvas(canvas, {
+          template: selectedTemplate,
+          recipientName: formData.recipientName,
+          message: formData.message,
+          creatorName: formData.creatorName,
+          image: formData.image,
+          images: formData.images,
+          recipientType: formData.recipientType,
+       } as any) // Cast as any because generateCardToCanvas interface might not strictly match the extended props if not updated in definition file (but I did update it)
+
+       canvas.toBlob((blob) => {
+         if (blob) {
+           const url = URL.createObjectURL(blob)
+           setPreviewImageUrl(url)
+           setShowPreview(true)
+         }
+       }, "image/png")
+     } catch(e) {
+         console.error(e)
+     } finally {
+         setIsGenerating(false)
+     }
   }
 
   return (
@@ -466,19 +577,13 @@ export default function DashboardPage() {
                 </h3>
 
                 <div className="space-y-4">
-                  <div>
-                    <Label htmlFor="recipientName" className="text-sm font-semibold text-foreground mb-2 block">
-                      Recipient Name *
-                    </Label>
-                    <Input
-                      id="recipientName"
-                      placeholder="Enter recipient's name"
-                      value={formData.recipientName}
-                      onChange={(e) => handleInputChange("recipientName", e.target.value)}
-                      className={`h-10 bg-input border-border ${errors.recipientName ? "border-destructive" : "focus:ring-accent focus:border-accent"}`}
-                    />
-                    {errors.recipientName && <p className="text-xs text-destructive mt-1">{errors.recipientName}</p>}
-                  </div>
+                  <RecipientSelector 
+                      type={formData.recipientType}
+                      onTypeChange={handleRecipientTypeChange}
+                      selectedRecipients={formData.recipients}
+                      onRecipientsChange={handleRecipientsChange}
+                      error={errors.recipientName}
+                  />
 
                   <div>
                     <Label htmlFor="message" className="text-sm font-semibold text-foreground mb-2 block">
@@ -522,7 +627,7 @@ export default function DashboardPage() {
 
                   <div>
                     <Label htmlFor="image" className="text-sm font-semibold text-foreground mb-2 block">
-                      Upload Image (Optional)
+                      {formData.recipientType === 'individual' ? "Upload Image (Optional)" : "Upload Images (Optional, up to 4)"}
                     </Label>
                     <label
                       htmlFor="image"
@@ -531,15 +636,26 @@ export default function DashboardPage() {
                       <div className="flex flex-col items-center justify-center pt-3 pb-3">
                         <Upload className="w-6 h-6 text-muted-foreground mb-2" />
                         <p className="text-sm text-foreground">Click to upload</p>
-                        <p className="text-xs text-muted-foreground">PNG, JPG up to 5MB</p>
+                        <p className="text-xs text-muted-foreground">{formData.recipientType === 'individual' ? "PNG, JPG up to 5MB" : "Select multiple images"}</p>
                       </div>
-                      <input id="image" type="file" className="hidden" accept="image/*" onChange={handleImageUpload} />
+                      <input 
+                          id="image" 
+                          type="file" 
+                          className="hidden" 
+                          accept="image/*" 
+                          multiple={formData.recipientType === 'team'}
+                          onChange={handleImageUpload} 
+                      />
                     </label>
-                    {formData.image && (
-                      <p className="text-sm text-accent mt-2 flex items-center gap-2">
-                        <span className="w-2 h-2 bg-accent rounded-full"></span>
-                        {formData.image.name}
-                      </p>
+                    {formData.images.length > 0 && (
+                        <div className="flex flex-wrap gap-2 mt-2">
+                            {formData.images.map((f, i) => (
+                                <p key={i} className="text-sm text-accent flex items-center gap-2">
+                                    <span className="w-2 h-2 bg-accent rounded-full"></span>
+                                    {f.name}
+                                </p>
+                            ))}
+                        </div>
                     )}
                     {errors.image && <p className="text-xs text-destructive mt-1">{errors.image}</p>}
                   </div>
@@ -597,475 +713,93 @@ export default function DashboardPage() {
                 </div>
 
                 <div className="bg-gradient-to-br from-card to-muted/20 rounded-xl border border-border p-6 aspect-[4/5] flex flex-col justify-between shadow-inner px-0 py-0">
-                  {selectedTemplate.id === "customer-centricity" ? (
-                    <div
-                      className="relative w-full h-full rounded-xl overflow-hidden"
-                      style={{
-                        backgroundImage: "url('/images/customer-centric-champion.png')",
-                        backgroundSize: "cover",
-                        backgroundPosition: "center",
-                        backgroundRepeat: "no-repeat",
-                      }}
-                    >
-                      <div className="absolute top-1 z-20">
-                        <img
-                          src="/images/customer-trophy.png"
-                          alt="Customer Trophy"
-                          className="object-contain drop-shadow-lg"
-                        />
-                      </div>
-
-                      <div className="absolute top-59 right-18 z-10">
-                        <div className="w-52 h-52 bg-white rounded-2xl p-1 shadow-lg">
-                          {formData.image ? (
-                            <img
-                              src={URL.createObjectURL(formData.image) || "/placeholder.svg"}
-                              alt="Employee"
-                              className="w-full h-full object-cover rounded-xl"
-                            />
-                          ) : (
-                            <div className="w-full h-full bg-gray-200 rounded-xl flex items-center justify-center">
-                              <Users className="w-8 h-8 text-gray-400" />
-                            </div>
-                          )}
-                        </div>
-                      </div>
-
-                      <div className="absolute bottom-42 left-1/2 transform -translate-x-1/2 text-center">
-                        <h3 className="text-white text-2xl font-bold" style={{ fontFamily: "Poppins, sans-serif" }}>
-                          {formData.recipientName || "RECIPIENT NAME"}
-                        </h3>
-                      </div>
-
-                      <div className="absolute bottom-24 left-1/2 transform -translate-x-1/2 text-center px-4 w-full">
-                        <p
-                          className="text-white text-sm leading-relaxed px-9 leading-3"
-                          style={{ fontFamily: "Poppins, sans-serif" }}
-                        >
-                          {formData.message ||
-                            "A round of applause for the remarkable efforts that make our team stronger every day!A round of applause for the remarkable efforts "}
-                        </p>
-                      </div>
-
-                      <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 text-center">
-                        <p className="text-white text-xs" style={{ fontFamily: "Poppins, sans-serif" }}>
-                          Recognized by: {formData.creatorName || "Your Name"}
-                        </p>
-                        <p className="text-white text-xs px-0 py-1" style={{ fontFamily: "Poppins, sans-serif" }}>
-                          {new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}
-                        </p>
-                      </div>
-                    </div>
-                  ) : selectedTemplate.id === "agility" ? (
-                    <div
-                      className="relative w-full h-full rounded-xl overflow-hidden"
-                      style={{
-                        backgroundImage: "url('/images/agility-champion.png')",
-                        backgroundSize: "cover",
-                        backgroundPosition: "center",
-                        backgroundRepeat: "no-repeat",
-                      }}
-                    >
-                      <div className="absolute top-2 z-20">
-                        <img
-                          src="/images/agility-trophy.png"
-                          alt="Agility Trophy"
-                          className="object-contain drop-shadow-lg"
-                        />
-                      </div>
-
-                      <div className="absolute top-59 right-18 z-10">
-                        <div className="w-52 h-52 bg-white rounded-2xl p-1 shadow-lg">
-                          {formData.image ? (
-                            <img
-                              src={URL.createObjectURL(formData.image) || "/placeholder.svg"}
-                              alt="Employee"
-                              className="w-full h-full object-cover rounded-xl"
-                            />
-                          ) : (
-                            <div className="w-full h-full bg-gray-200 rounded-xl flex items-center justify-center">
-                              <Users className="w-8 h-8 text-gray-400" />
-                            </div>
-                          )}
-                        </div>
-                      </div>
-
-                      <div className="absolute bottom-42 left-1/2 transform -translate-x-1/2 text-center">
-                        <h3 className="text-white text-2xl font-bold" style={{ fontFamily: "Poppins, sans-serif" }}>
-                          {formData.recipientName || "RECIPIENT NAME"}
-                        </h3>
-                      </div>
-
-                      <div className="absolute bottom-24 left-1/2 transform -translate-x-1/2 text-center px-4 w-full">
-                        <p
-                          className="text-white text-sm leading-relaxed px-9 leading-3"
-                          style={{ fontFamily: "Poppins, sans-serif" }}
-                        >
-                          {formData.message || "Your agility and quick thinking drive our success forward!"}
-                        </p>
-                      </div>
-
-                      <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 text-center">
-                        <p className="text-white text-xs" style={{ fontFamily: "Poppins, sans-serif" }}>
-                          Recognized by: {formData.creatorName || "Your Name"}
-                        </p>
-                        <p className="text-white text-xs px-0 py-1" style={{ fontFamily: "Poppins, sans-serif" }}>
-                          {new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}
-                        </p>
-                      </div>
-                    </div>
-                  ) : selectedTemplate.id === "continuous-improvement" ? (
-                    <div
-                      className="relative w-full h-full rounded-xl overflow-hidden"
-                      style={{
-                        backgroundImage: "url('/images/continuous-improvement-champion.png')",
-                        backgroundSize: "cover",
-                        backgroundPosition: "center",
-                        backgroundRepeat: "no-repeat",
-                      }}
-                    >
-                      <div className="absolute top-1 z-20">
-                        <img
-                          src="/images/continuous-trophy.png"
-                          alt="Continuous Trophy"
-                          className="object-contain drop-shadow-lg"
-                        />
-                      </div>
-
-                      <div className="absolute top-59 right-18 z-10">
-                        <div className="w-52 h-52 bg-white rounded-2xl p-1 shadow-lg">
-                          {formData.image ? (
-                            <img
-                              src={URL.createObjectURL(formData.image) || "/placeholder.svg"}
-                              alt="Employee"
-                              className="w-full h-full object-cover rounded-xl"
-                            />
-                          ) : (
-                            <div className="w-full h-full bg-gray-200 rounded-xl flex items-center justify-center">
-                              <Users className="w-8 h-8 text-gray-400" />
-                            </div>
-                          )}
-                        </div>
-                      </div>
-
-                      <div className="absolute bottom-42 left-1/2 transform -translate-x-1/2 text-center">
-                        <h3 className="text-white text-2xl font-bold" style={{ fontFamily: "Poppins, sans-serif" }}>
-                          {formData.recipientName || "RECIPIENT NAME"}
-                        </h3>
-                      </div>
-
-                      <div className="absolute bottom-24 left-1/2 transform -translate-x-1/2 text-center px-4 w-full">
-                        <p
-                          className="text-white text-sm leading-relaxed px-9 leading-3"
-                          style={{ fontFamily: "Poppins, sans-serif" }}
-                        >
-                          {formData.message || "Your commitment to improvement elevates everything you touch!"}
-                        </p>
-                      </div>
-
-                      <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 text-center">
-                        <p className="text-white text-xs" style={{ fontFamily: "Poppins, sans-serif" }}>
-                          Recognized by: {formData.creatorName || "Your Name"}
-                        </p>
-                        <p className="text-white text-xs px-0 py-1" style={{ fontFamily: "Poppins, sans-serif" }}>
-                          {new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}
-                        </p>
-                      </div>
-                    </div>
-                  ) : selectedTemplate.id === "collaboration" ? (
-                    <div
-                      className="relative w-full h-full rounded-xl overflow-hidden"
-                      style={{
-                        backgroundImage: "url('/images/collaboration-champion.png')",
-                        backgroundSize: "cover",
-                        backgroundPosition: "center",
-                        backgroundRepeat: "no-repeat",
-                      }}
-                    >
-                      <div className="absolute top-1 z-20">
-                        <img
-                          src="/images/collaboration-trophy.png"
-                          alt="Collaboration Trophy"
-                          className="object-contain drop-shadow-lg"
-                        />
-                      </div>
-
-                      <div className="absolute top-59 right-18 z-10">
-                        <div className="w-52 h-52 bg-white rounded-2xl p-1 shadow-lg">
-                          {formData.image ? (
-                            <img
-                              src={URL.createObjectURL(formData.image) || "/placeholder.svg"}
-                              alt="Employee"
-                              className="w-full h-full object-cover rounded-xl"
-                            />
-                          ) : (
-                            <div className="w-full h-full bg-gray-200 rounded-xl flex items-center justify-center">
-                              <Users className="w-8 h-8 text-gray-400" />
-                            </div>
-                          )}
-                        </div>
-                      </div>
-
-                      <div className="absolute bottom-42 left-1/2 transform -translate-x-1/2 text-center">
-                        <h3 className="text-white text-2xl font-bold" style={{ fontFamily: "Poppins, sans-serif" }}>
-                          {formData.recipientName || "RECIPIENT NAME"}
-                        </h3>
-                      </div>
-
-                      <div className="absolute bottom-24 left-1/2 transform -translate-x-1/2 text-center px-4 w-full">
-                        <p
-                          className="text-white text-sm leading-relaxed px-9 leading-3"
-                          style={{ fontFamily: "Poppins, sans-serif" }}
-                        >
-                          {formData.message || "Your collaborative spirit transforms good ideas into great results!"}
-                        </p>
-                      </div>
-
-                      <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 text-center">
-                        <p className="text-white text-xs" style={{ fontFamily: "Poppins, sans-serif" }}>
-                          Recognized by: {formData.creatorName || "Your Name"}
-                        </p>
-                        <p className="text-white text-xs px-0 py-1" style={{ fontFamily: "Poppins, sans-serif" }}>
-                          {new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}
-                        </p>
-                      </div>
-                    </div>
-                  ) : selectedTemplate.id === "accountability" ? (
-                    <div
-                      className="relative w-full h-full rounded-xl overflow-hidden"
-                      style={{
-                        backgroundImage: "url('/images/accountability-champion.png')",
-                        backgroundSize: "cover",
-                        backgroundPosition: "center",
-                        backgroundRepeat: "no-repeat",
-                      }}
-                    >
-                      <div className="absolute top-1 z-20">
-                        <img
-                          src="/images/accountability-trophy.png"
-                          alt="Accountability Trophy"
-                          className="object-contain drop-shadow-lg"
-                        />
-                      </div>
-
-                      <div className="absolute top-59 right-18 z-10">
-                        <div className="w-52 h-52 bg-white rounded-2xl p-1 shadow-lg">
-                          {formData.image ? (
-                            <img
-                              src={URL.createObjectURL(formData.image) || "/placeholder.svg"}
-                              alt="Employee"
-                              className="w-full h-full object-cover rounded-xl"
-                            />
-                          ) : (
-                            <div className="w-full h-full bg-gray-200 rounded-xl flex items-center justify-center">
-                              <Users className="w-8 h-8 text-gray-400" />
-                            </div>
-                          )}
-                        </div>
-                      </div>
-
-                      <div className="absolute bottom-42 left-1/2 transform -translate-x-1/2 text-center">
-                        <h3 className="text-white text-2xl font-bold" style={{ fontFamily: "Poppins, sans-serif" }}>
-                          {formData.recipientName || "RECIPIENT NAME"}
-                        </h3>
-                      </div>
-
-                      <div className="absolute bottom-24 left-1/2 transform -translate-x-1/2 text-center px-4 w-full">
-                        <p
-                          className="text-white text-sm leading-relaxed px-9 leading-3"
-                          style={{ fontFamily: "Poppins, sans-serif" }}
-                        >
-                          {formData.message || "Your accountability sets the standard for excellence and trust!"}
-                        </p>
-                      </div>
-
-                      <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 text-center">
-                        <p className="text-white text-xs" style={{ fontFamily: "Poppins, sans-serif" }}>
-                          Recognized by: {formData.creatorName || "Your Name"}
-                        </p>
-                        <p className="text-white text-xs px-0 py-1" style={{ fontFamily: "Poppins, sans-serif" }}>
-                          {new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}
-                        </p>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="text-center">
-                      {(() => {
-                        const IconComponent = selectedTemplate.icon
-                        return (
-                          <div
-                            className={`w-16 h-16 ${selectedTemplate.color} rounded-xl flex items-center justify-center mx-auto mb-4`}
-                          >
-                            <IconComponent className="w-8 h-8 text-white" />
-                          </div>
-                        )
-                      })()}
-                      <h4 className="text-xl font-bold text-foreground mb-2">{selectedTemplate.name}</h4>
-                      <p className="text-xs text-muted-foreground font-medium mb-6 tracking-wider uppercase">
-                        Recognition Award
-                      </p>
-                    </div>
-                  )}
+                   {/* 
+                      Note: Using a simple preview container instead of replicating the complex canvas logic here.
+                      The 'Preview' button handles the actual canvas generation for accurate preview.
+                   */}
+                   {showPreview && previewImageUrl ? (
+                       <img src={previewImageUrl} alt="Preview" className="w-full h-full object-contain rounded-xl" />
+                   ) : (
+                       <div className="w-full h-full flex flex-col items-center justify-center text-muted-foreground bg-muted/20 rounded-xl p-6 text-center">
+                           <Award className="w-12 h-12 mb-2 text-muted-foreground/50" />
+                           <p>Fill out the form and click "Preview" to see your card here</p>
+                       </div>
+                   )}
                 </div>
               </CardContent>
             </Card>
           </div>
         </div>
 
-        {showConfirmDialog && pendingTemplate && (
-          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <div className="bg-card border border-border rounded-xl shadow-2xl max-w-md w-full mx-4 overflow-hidden">
-              <div className="p-6">
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="w-10 h-10 bg-amber-100 dark:bg-amber-900/30 rounded-full flex items-center justify-center">
-                    <AlertTriangle className="w-5 h-5 text-amber-600 dark:text-amber-400" />
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-semibold text-foreground">Switch Template?</h3>
-                    <p className="text-sm text-muted-foreground">You have unsaved changes</p>
-                  </div>
-                </div>
-
-                <div className="mb-6">
-                  <p className="text-sm text-muted-foreground leading-relaxed">
-                    You've entered card details for{" "}
-                    <span className="font-medium text-foreground">{selectedTemplate.name}</span>. Switching to{" "}
-                    <span className="font-medium text-foreground">{pendingTemplate.name}</span> will clear your current
-                    entries.
-                  </p>
-                </div>
-
-                <div className="flex gap-3">
-                  <Button
-                    onClick={handleCancelTemplateSwitch}
-                    variant="outline"
-                    className="flex-1 border-border hover:bg-muted bg-transparent"
-                  >
-                    Keep Current
-                  </Button>
-                  <Button
-                    onClick={handleConfirmTemplateSwitch}
-                    className="flex-1 bg-primary hover:bg-primary/90 text-primary-foreground"
-                  >
-                    Switch Template
-                  </Button>
-                </div>
+        {/* Success Modal */}
+        {showSuccessModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+            <div className="bg-background rounded-lg shadow-xl w-full max-w-md p-6 m-4 border border-border">
+              <div className="flex items-center justify-center mb-4 text-green-500">
+                <CheckCircle className="w-12 h-12" />
               </div>
-            </div>
-          </div>
-        )}
+              <h3 className="text-2xl font-bold text-center text-foreground mb-2">Card Generated!</h3>
+              <p className="text-center text-muted-foreground mb-6">
+                Your kudos card has been successfully created and saved.
+              </p>
 
-        {showPreview && previewImageUrl && (
-          <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
-            <div className="bg-card rounded-lg p-6 max-w-2xl w-full max-h-[90vh] overflow-auto">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-xl font-semibold">Generated Image Preview</h3>
-                <Button
-                  onClick={() => {
-                    setShowPreview(false)
-                    if (previewImageUrl) {
-                      URL.revokeObjectURL(previewImageUrl)
-                      setPreviewImageUrl(null)
-                    }
-                  }}
-                  variant="outline"
-                  size="sm"
-                >
+              <div className="space-y-3">
+                <Button onClick={handleRedownload} className="w-full" variant="outline">
+                  <Download className="w-4 h-4 mr-2" />
+                  Download Again
+                </Button>
+                <Button onClick={handleCreateAnother} className="w-full bg-primary hover:bg-primary/90">
+                  <Sparkles className="w-4 h-4 mr-2" />
+                  Create Another
+                </Button>
+                <Button onClick={handleViewMyCards} variant="ghost" className="w-full">
+                  View My Cards
+                </Button>
+                <Button onClick={handleCreateAnother} variant="ghost" className="w-full text-muted-foreground">
                   Close
                 </Button>
               </div>
-              <div className="flex justify-center">
-                <img
-                  src={previewImageUrl || "/placeholder.svg"}
-                  alt="Generated Kudos Card Preview"
-                  className="max-w-full h-auto rounded-lg shadow-lg"
-                />
+            </div>
+          </div>
+        )}
+
+        {/* Template Switch Confirmation Dialog */}
+        {showConfirmDialog && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+            <div className="bg-background rounded-lg shadow-xl w-full max-w-md p-6 m-4 border border-border">
+              <div className="flex items-center justify-center mb-4 text-yellow-500">
+                <AlertTriangle className="w-12 h-12" />
+              </div>
+              <h3 className="text-xl font-bold text-center text-foreground mb-2">Switch Template?</h3>
+              <p className="text-center text-muted-foreground mb-6">
+                Switching templates will clear your current message and image. Are you sure you want to continue?
+              </p>
+
+              <div className="flex gap-3">
+                <Button onClick={handleCancelTemplateSwitch} variant="outline" className="flex-1">
+                  Cancel
+                </Button>
+                <Button onClick={handleConfirmTemplateSwitch} className="flex-1 bg-primary text-primary-foreground">
+                  Yes, Switch
+                </Button>
               </div>
             </div>
           </div>
         )}
 
-        {showSuccessModal && (
-          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <div className="bg-card border border-border rounded-2xl shadow-2xl max-w-lg w-full mx-4 overflow-hidden relative">
-              {/* Party Popper Animation */}
-              <div className="absolute inset-0 pointer-events-none overflow-hidden">
-                <div className="absolute top-4 left-4 animate-bounce delay-100">
-                  <Sparkles className="w-6 h-6 text-primary animate-pulse" />
-                </div>
-                <div className="absolute top-8 right-8 animate-bounce delay-300">
-                  <Sparkles className="w-4 h-4 text-yellow-400 animate-pulse" />
-                </div>
-                <div className="absolute top-16 left-1/2 animate-bounce delay-500">
-                  <Sparkles className="w-5 h-5 text-pink-400 animate-pulse" />
-                </div>
-                <div className="absolute bottom-20 right-12 animate-bounce delay-700">
-                  <Sparkles className="w-4 h-4 text-blue-400 animate-pulse" />
-                </div>
-                <div className="absolute bottom-16 left-8 animate-bounce delay-200">
-                  <Sparkles className="w-6 h-6 text-purple-400 animate-pulse" />
-                </div>
-              </div>
-
-              <div className="p-8 text-center relative z-10">
-                {/* Success Icon */}
-                <div className="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-6 animate-pulse">
-                  <CheckCircle className="w-12 h-12 text-primary animate-bounce" />
-                </div>
-
-                {/* Success Message */}
-                <h2 className="text-3xl font-bold text-foreground mb-2 animate-fade-in">🎉 Your card is ready!</h2>
-                <p className="text-muted-foreground mb-8 animate-fade-in delay-200">
-                  Your kudos card for{" "}
-                  <span className="font-semibold text-foreground">{generatedCardData?.recipientName}</span> has been
-                  successfully created and downloaded.
-                </p>
-
-                {/* Action Buttons */}
-                <div className="space-y-4">
-                  <div className="flex justify-center">
-                    <Button
-                      onClick={handleRedownload}
-                      disabled={isGenerating}
-                      className="bg-primary hover:bg-primary/90 text-primary-foreground font-medium shadow-md px-8"
-                    >
-                      <Download className="w-4 h-4 mr-2" />
-                      {isGenerating ? "Downloading..." : "Download Again"}
-                    </Button>
-                  </div>
-
-                  {/* Reserved space for future features 
-                  <div className="h-12 flex items-center justify-center">
-                    <p className="text-xs text-muted-foreground/60">Additional sharing options coming soon</p>
-                  </div>
-                  */}
-                  <div className="pt-4 border-t border-border">
-                    <div className="flex gap-3">
-                      <Button
-                        onClick={handleViewMyCards}
-                        className="flex-1 bg-primary hover:bg-primary/90 text-primary-foreground font-medium"
-                      >
-                        View My Cards
-                      </Button>
-                      <Button
-                        onClick={() => {
-                          setFormData({
-                            recipientName: "",
-                            message: "",
-                            creatorName: loggedInUser?.name || "Arun Sasi",
-                            image: null,
-                          })
-                          setShowSuccessModal(false)
-                        }}
-                        variant="outline"
-                        className="flex-1 border-border hover:bg-muted"
-                      >
-                        Close
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              </div>
+        {/* Preview Modal (Full Screen) */}
+        {showPreview && previewImageUrl && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4" onClick={() => setShowPreview(false)}>
+            <div className="relative max-h-[90vh] max-w-[90vw] overflow-auto" onClick={e => e.stopPropagation()}>
+                <img src={previewImageUrl} alt="Card Preview" className="max-w-full max-h-[85vh] rounded-lg shadow-2xl" />
+                <Button 
+                    className="absolute top-2 right-2 rounded-full p-2 h-auto" 
+                    variant="destructive"
+                    onClick={() => setShowPreview(false)}
+                >
+                     <p className="sr-only">Close</p>
+                     <span className="text-white font-bold">X</span>
+                </Button>
             </div>
           </div>
         )}

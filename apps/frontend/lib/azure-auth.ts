@@ -42,6 +42,10 @@ export const loginRequest = {
     process.env.NEXT_PUBLIC_AZURE_SCOPE || "",
     "openid",
     "profile",
-    "offline_access"
+    "offline_access",
+    "User.Read.All" // Required for searching other users
   ].filter(Boolean) as string[],
 };
+
+export const graphScopes = ["User.Read.All"];
+

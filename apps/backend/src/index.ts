@@ -160,8 +160,25 @@ app.post("/api/cards", authenticate(), async (req, res) => {
 
     // Construct explicit insert object to avoid Drizzle ignoring properties or mutation issues
     // Note: Do NOT pass createdAt - let the database default handle it
+    
+    // Validate recipient logic
+    const recipientType = cardData.recipientType || 'individual';
+    const recipientEmails = Array.isArray(cardData.recipientEmails) ? cardData.recipientEmails : [];
+
+    if (recipientType === 'individual' && recipientEmails.length > 1) {
+        return res.status(400).json({ error: "Individual cards can only have one recipient." });
+    }
+    
+    // Check if recipientEmails is empty (unless we allow cards without explicit emails, but for this feature we probably want them)
+    if (recipientType === 'team' && recipientEmails.length === 0) {
+        // Optional: strict check
+         // return res.status(400).json({ error: "Team cards must have at least one recipient." });
+    }
+
     const insertValues = {
         recipientName: cardData.recipientName,
+        recipientType: recipientType,
+        recipientEmails: recipientEmails,
         creatorName: cardData.creatorName,
         creatorEmail: cardData.creatorEmail,
         template: cardData.template,
