@@ -1,7 +1,28 @@
 import { msalInstance, loginRequest } from "./azure-auth";
 import { InteractionRequiredAuthError } from "@azure/msal-browser";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+const getBaseUrl = () => {
+  // If we are on the client side (browser)
+  if (typeof window !== "undefined") {
+    // Check if we are running locally
+    const isLocal = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
+    
+    // If not local (i.e. we are on a real domain like reflecto-ai.onreflections.com), 
+    // ALWAYS use relative path to ensure we hit the nginx proxy correctly.
+    // This overrides potential baked-in localhost env vars from build time.
+    if (!isLocal) {
+        return "/api";
+    }
+
+    // If local, allow env var override or fallback
+    return process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+  }
+  
+  // Server-side fallback
+  return process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+};
+
+const API_BASE_URL = getBaseUrl();
 
 class ApiClient {
   private baseURL: string;

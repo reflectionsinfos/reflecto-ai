@@ -78,6 +78,10 @@ sudo docker compose up -d --build
 ### Option B: Production (Uses Host Database)
 
 **Recommended for 192.168.117.114**. Connects to your existing local Postgres and assumes Nginx is on the host.
+a. Connect winscp to 192.168.117.114 using refluser and gi5ruS4s=ewo&5
+b. Copy apps folder from local to /var/www/reflecto-ai
+c. open the putty and login to 192.168.117.114
+d. change the folder to /var/www/reflecto-ai then run the below command
 
 ```bash
 sudo docker compose -f docker-compose.prod.yml up -d --build
@@ -95,6 +99,8 @@ _Note: This configuration uses `host.docker.internal` to connect to the database
 
     ```bash
     sudo cp apps/infra/reflecto-prod-app.conf /etc/nginx/conf.d/
+    # Make sure to copy samiksha-prod-app.conf as well if needed
+    sudo cp apps/infra/samiksha-prod-app.conf /etc/nginx/conf.d/
     ```
 
 2.  **Verify and Reload Nginx**:
@@ -103,6 +109,13 @@ _Note: This configuration uses `host.docker.internal` to connect to the database
     sudo nginx -t
     sudo systemctl reload nginx
     ```
+
+3.  **Update Azure AD Redirect URIs (Frontend App)**:
+    Locate the App Registration for the **Frontend** (Client ID: `7e34b4ec-3528-4096-866e-615d3e0eb06d`).
+    _Do not edit the Backend app registration._
+    Ensure the following URIs are added to the Authentication -> Redirect URIs section:
+    - `https://reflecto-ai.onreflections.com`
+    - `https://samiksha-ai.onreflections.com` (If you intend to access via this domain)
 
 ## Troubleshooting
 
@@ -118,3 +131,20 @@ _Note: This configuration uses `host.docker.internal` to connect to the database
   ```bash
   docker-compose down
   ```
+
+## 5. Clean Re-deployment (If changes are not reflecting)
+
+If you have updated the code but the app still shows the old version, run these commands to remove old images and rebuild from scratch:
+
+**Important**: Ensure you have re-copied the latest `apps` folder to `/var/www/reflecto-ai` before running this.
+
+```bash
+# 1. Stop containers and remove images
+sudo docker compose -f docker-compose.prod.yml down --rmi all
+
+# 2. Build freshly without cache
+sudo docker compose -f docker-compose.prod.yml build --no-cache
+
+# 3. Start services
+sudo docker compose -f docker-compose.prod.yml up -d --force-recreate
+```

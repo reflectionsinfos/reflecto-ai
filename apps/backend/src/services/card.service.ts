@@ -130,14 +130,19 @@ export const cardService = {
     await db.delete(kudosCards).where(eq(kudosCards.id, id));
     
     // Log history
+    // Note: We cannot link to the cardId because it was just deleted
+    // and the FK constraint would fail (or cascade delete this log).
     await db.insert(kudosHistory).values({
         action: "delete",
-        cardId: cardToDelete.id, 
+        cardId: null, // Card is gone
         recipientName: cardToDelete.recipientName,
         creatorName: cardToDelete.creatorName,
         creatorEmail: cardToDelete.creatorEmail,
         template: cardToDelete.template,
-        metadata: { deletedBy }
+        metadata: { 
+            deletedBy,
+            originalCardId: cardToDelete.id // Store ID in metadata for reference
+        }
     });
 
     return { success: true };

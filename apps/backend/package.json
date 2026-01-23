@@ -39,6 +39,8 @@
     "@types/swagger-ui-express": "^4.1.8",
     "drizzle-kit": "^0.31.8",
     "tsx": "^4.21.0",
-    "typescript": "^5.0.0"
+    "typescript": "^5.0.0",
+    "@types/passport": "^1.0.16",
+    "@types/passport-azure-ad": "^4.3.6"
   }
 }

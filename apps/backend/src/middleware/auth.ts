@@ -38,7 +38,7 @@ const bearerStrategy = new BearerStrategy(
     const user = {
         id: token.oid,
         name: token.name,
-        email: token.preferred_username || token.email || token.unique_name,
+        email: token.preferred_username || (token as any).email || (token as any).unique_name,
         tid: token.tid,
         roles: token.roles || []
     };

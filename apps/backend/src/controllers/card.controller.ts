@@ -5,7 +5,7 @@ import { asyncHandler } from '../middleware/errorHandler';
 export const cardController = {
   createCard: asyncHandler(async (req: Request, res: Response) => {
     const cardData = req.body;
-    const user = req.user as any; 
+    const user = (req as any).user; 
     const card = await cardService.createCard(cardData, user);
     res.json(card);
   }),
@@ -18,14 +18,14 @@ export const cardController = {
 
   getUserCards: asyncHandler(async (req: Request, res: Response) => {
     const { email } = req.params;
-    const cards = await cardService.getUserCards(email);
+    const cards = await cardService.getUserCards(email as string);
     res.json(cards);
   }),
 
   deleteCard: asyncHandler(async (req: Request, res: Response) => {
     const { id } = req.params;
     const { deletedBy } = req.body;
-    const result = await cardService.deleteCard(id, deletedBy);
+    const result = await cardService.deleteCard(id as string, deletedBy as string);
     res.json(result);
   })
 };

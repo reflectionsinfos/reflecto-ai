@@ -1,19 +1,33 @@
 # ReflectoAI
 
-A futuristic, AI-powered HR recognition platform.
+A futuristic, AI-powered HR recognition platform for generating and managing Kudos cards.
 
 ## Project Structure (Monorepo)
 
-- **`apps/frontend`**: The Next.js Web Application.
-- **`apps/backend`**: The Node.js/AI Service.
-- **`packages/`**: Shared libraries.
+- **`apps/frontend`**: Next.js 15 Web Application (React, Tailwind, Shadcn UI).
+- **`apps/backend`**: Node.js/Express Service (Drizzle ORM, PostgreSQL).
+- **`packages/`**: Shared libraries (if applicable).
+
+## Tech Stack
+
+- **Frontend**: Next.js 15, TypeScript, Tailwind CSS, Radix UI.
+- **Backend**: Express.js, TypeScript.
+- **Database**: PostgreSQL (via Drizzle ORM).
+- **Authentication**: Azure Active Directory (MSAL on client, Passport-Azure-AD on server).
+- **Deployment**: Docker Compose, Nginx.
 
 ## Getting Started
 
 ### Prerequisites
 
 - Node.js 18+
-- npm
+- npm or pnpm
+- Docker & Docker Compose (for containerized DB/App)
+- PostgreSQL (if running locally without Docker)
+
+### Environment Configuration
+
+Ensure you have the necessary `.env` files in `apps/frontend` and `apps/backend`. Refer to `deployment.md` for production values, or use localhost defaults for development.
 
 ### Installation
 
@@ -23,31 +37,32 @@ npm install
 
 ### Running the App
 
-To start **both** the Frontend and Backend simultaneously:
+To start **both** the Frontend and Backend simultaneously (using Turbo/concurrently):
 
 ```bash
 npm run dev
 ```
 
 - **Frontend**: [http://localhost:3000](http://localhost:3000)
-- **Backend**: (Console Output)
+- **Backend**: [http://localhost:4000](http://localhost:4000) (API)
 
-### Other Commands
+### Database Management
 
-- `npm run build` - Build all apps.
-- `npm run lint` - Lint all code.
-
-### Docker Deployment
-
-To run the application using Docker Compose (recommended for production):
+The backend uses Drizzle ORM.
 
 ```bash
-# Build and start services
+# Push schema changes (from apps/backend)
+npm run db:push
+
+# Seed database
+npm run seed
+```
+
+## Docker Deployment
+
+For detailed production deployment instructions, see [deployment.md](./deployment.md).
+
+```bash
+# Build and start all services (Frontend, Backend, DB)
 docker-compose up -d --build
-
-# View logs
-docker-compose logs -f
-
-# Stop services
-docker-compose down
 ```
