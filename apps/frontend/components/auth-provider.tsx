@@ -2,19 +2,31 @@
 
 import { MsalProvider } from "@azure/msal-react";
 import { msalInstance } from "@/lib/azure-auth";
-import { ReactNode } from "react";
+import { ReactNode, useEffect, useState } from "react";
 
 interface AuthProviderProps {
   children: ReactNode;
 }
 
 export function AuthProvider({ children }: AuthProviderProps) {
-  // If MSAL failed to initialize (e.g. env vars missing), strictly render children without provider
-  // effectively disabling auth but keeping the app running (graceful degradation)
-  if (!msalInstance) {
-    console.warn("MSAL Instance not finalized. Auth disabled.");
-    return <>{children}</>;
+  const [isInitialized, setIsInitialized] = useState(false);
+
+  useEffect(() => {
+    const initialize = async () => {
+      try {
+        await msalInstance.initialize();
+        setIsInitialized(true);
+      } catch (error) {
+        console.error("Failed to initialize MSAL:", error);
+      }
+    };
+    initialize();
+  }, []);
+
+  if (!isInitialized) {
+    return null; // Or a loading spinner
   }
 
   return <MsalProvider instance={msalInstance}>{children}</MsalProvider>;
 }
+

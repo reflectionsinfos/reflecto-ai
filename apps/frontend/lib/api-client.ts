@@ -1,4 +1,4 @@
-import { msalInstance, loginRequest, initializeMsal } from "./azure-auth";
+import { msalInstance, loginRequest } from "./azure-auth";
 import { InteractionRequiredAuthError } from "@azure/msal-browser";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
@@ -11,25 +11,18 @@ class ApiClient {
   }
 
   private async getAuthToken(): Promise<string | null> {
-    if (!msalInstance) return null;
-
     try {
-      // Ensure MSAL is initialized (required for v3)
-      await initializeMsal();
-      
       const accounts = msalInstance.getAllAccounts();
       if (accounts.length === 0) {
-        console.warn("No MSAL accounts found. User might not be signed in.");
+        console.warn("No MSAL accounts found.");
         return null;
       }
 
-      // If active account isn't set, try to set the first one
-      if (!msalInstance.getActiveAccount() && accounts.length > 0) {
-          msalInstance.setActiveAccount(accounts[0]);
+      const activeAccount = msalInstance.getActiveAccount() || accounts[0];
+      // Ensure active account is set if we found one
+      if (!msalInstance.getActiveAccount()) {
+         msalInstance.setActiveAccount(activeAccount);
       }
-
-      const activeAccount = msalInstance.getActiveAccount();
-      if (!activeAccount) return null;
 
       const response = await msalInstance.acquireTokenSilent({
         ...loginRequest,
@@ -37,18 +30,12 @@ class ApiClient {
       });
 
       return response.accessToken;
-      return null;
     } catch (error) {
       console.error("Silent token acquisition failed", error);
       if (error instanceof InteractionRequiredAuthError) {
-        console.warn("User needs to sign in again (interaction required)");
+        // In a real app, you might trigger a redirect here or throw to let the UI handle it
+        throw error;
       }
-      
-      // Fallback for Demo User
-      if (typeof window !== "undefined" && localStorage.getItem("isAuthenticated") === "true") {
-          return "demo-token";
-      }
-
       return null;
     }
   }
@@ -70,80 +57,81 @@ class ApiClient {
     return headers;
   }
 
-  async get<T>(endpoint: string): Promise<T> {
-    // Determine if endpoint is absolute or relative
-    // If relative, prepend base URL. If it starts with /api, remove it if base url includes it or adjust logic.
-    // Here we assume base URL is http://localhost:4000 and endpoint is /api/foo
-    
+  private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
     const url = endpoint.startsWith("http") ? endpoint : `${this.baseURL}${endpoint}`;
-    console.log(`ApiClient.get calling: ${url}`);
-    const headers = await this.getHeaders();
+    const headers = await this.getHeaders(
+        options.headers && (options.headers as any)["Content-Type"] === null ? null : "application/json"
+    );
 
-    const response = await fetch(url, { method: "GET", headers });
+    // Merge headers
+    const finalOptions: RequestInit = {
+        ...options,
+        headers: {
+            ...headers,
+            ...options.headers,
+        }
+    };
     
+    // If Content-Type was set to null (for formData), remove it from the merged headers 
+    // to let the browser set it with boundary
+    const mergedHeaders = finalOptions.headers as Record<string, string>;
+    if(mergedHeaders["Content-Type"] === undefined && (options.headers as any)?.["Content-Type"] === undefined) {
+         delete mergedHeaders["Content-Type"];
+    }
+
+
+
+
+    const response = await fetch(url, finalOptions);
+
     if (!response.ok) {
-      const error = await response.text();
-      throw new Error(`API Error ${response.status}: ${error}`);
+      const errorText = await response.text();
+      let errorMessage = `API Error ${response.status}`;
+      try {
+          const errorJson = JSON.parse(errorText);
+          errorMessage = errorJson.message || errorJson.error || errorMessage;
+      } catch (e) {
+          errorMessage = `${errorMessage}: ${errorText}`;
+      }
+      throw new Error(errorMessage);
+    }
+
+    // Handle empty responses (like 204 No Content)
+    if (response.status === 204) {
+        return {} as T;
     }
 
     return response.json();
+  }
+
+  async get<T>(endpoint: string): Promise<T> {
+    return this.request<T>(endpoint, { method: "GET" });
   }
 
   async post<T>(endpoint: string, data: any): Promise<T> {
-    const url = endpoint.startsWith("http") ? endpoint : `${this.baseURL}${endpoint}`;
-    const headers = await this.getHeaders();
-
-    const response = await fetch(url, {
+    return this.request<T>(endpoint, {
       method: "POST",
-      headers,
       body: JSON.stringify(data),
     });
-
-    if (!response.ok) {
-      const error = await response.text();
-      throw new Error(`API Error ${response.status}: ${error}`);
-    }
-
-    return response.json();
   }
-  
-  // Basic file upload support (multipart/form-data)
+
   async upload<T>(endpoint: string, formData: FormData): Promise<T> {
-    const url = endpoint.startsWith("http") ? endpoint : `${this.baseURL}${endpoint}`;
-    // Content-Type must be undefined for FormData to let browser set boundary
-    const headers = await this.getHeaders(null);
-
-    const response = await fetch(url, {
+    return this.request<T>(endpoint, {
       method: "POST",
-      headers,
       body: formData,
+      headers: {
+        "Content-Type": null as any // Hack to signal getHeaders to omit content-type
+      }
     });
-
-    if (!response.ok) {
-       const error = await response.text();
-       throw new Error(`API Error ${response.status}: ${error}`);
-    }
-
-    return response.json();
   }
   
   async delete<T>(endpoint: string, data?: any): Promise<T> {
-      const url = endpoint.startsWith("http") ? endpoint : `${this.baseURL}${endpoint}`;
-      const headers = await this.getHeaders();
-  
-      const response = await fetch(url, {
+      return this.request<T>(endpoint, {
         method: "DELETE",
-        headers,
         body: data ? JSON.stringify(data) : undefined,
       });
-  
-      if (!response.ok) {
-        const error = await response.text();
-        throw new Error(`API Error ${response.status}: ${error}`);
-      }
-  
-      return response.json();
-    }
+  }
 }
 
 export const apiClient = new ApiClient();
+

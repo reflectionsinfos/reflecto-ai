@@ -1,11 +1,10 @@
-"use client"
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { BarChart3, TrendingUp, Users, Award, Calendar, Download, Trash2, Activity, Clock } from "lucide-react"
-import { getCurrentUser, isAdmin } from "@/lib/auth"
+import { useAuth } from "@/hooks/use-auth"
 import { cardStorage, type HistoryEntry } from "@/lib/card-storage"
 
 interface AnalyticsData {
@@ -25,28 +24,27 @@ interface UserStats {
 
 export default function AnalyticsPage() {
   const router = useRouter()
-  const [currentUser, setCurrentUser] = useState<any>(null)
+  const { user, isLoading, isAuthenticated } = useAuth()
   const [analyticsData, setAnalyticsData] = useState<AnalyticsData | null>(null)
   const [userStats, setUserStats] = useState<UserStats[]>([])
   const [selectedTimeframe, setSelectedTimeframe] = useState<"7d" | "30d" | "all">("30d")
-  const [isLoading, setIsLoading] = useState(true)
+  const [isDataLoading, setIsDataLoading] = useState(true)
 
   useEffect(() => {
-    const user = getCurrentUser()
-    setCurrentUser(user)
+    if (isLoading) return;
 
-    // Redirect non-admins
-    if (!user || !isAdmin()) {
+    if (!isAuthenticated || !user || user.role !== "admin") {
       router.push("/dashboard")
       return
     }
 
     // Load analytics data
     loadAnalyticsData()
-  }, [router])
+  }, [isLoading, isAuthenticated, user, router])
+
 
   const loadAnalyticsData = async () => {
-    setIsLoading(true)
+    setIsDataLoading(true)
     try {
       const stats = await cardStorage.getCardStats()
       setAnalyticsData(stats)
@@ -78,9 +76,10 @@ export default function AnalyticsPage() {
     } catch (error) {
       console.error("Error loading analytics:", error)
     } finally {
-      setIsLoading(false)
+      setIsDataLoading(false)
     }
   }
+
 
   const getFilteredActivity = () => {
     if (!analyticsData) return []

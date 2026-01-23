@@ -1,8 +1,5 @@
 import { Configuration, PublicClientApplication } from "@azure/msal-browser";
 
-// Environment variables should be defined in your .env.local file
-const azureAuthEnabled = process.env.NEXT_PUBLIC_AZURE_AUTH_ENABLED !== 'false';
-
 export const msalConfig: Configuration = {
   auth: {
     clientId: process.env.NEXT_PUBLIC_AZURE_CLIENT_ID || "",
@@ -11,41 +8,26 @@ export const msalConfig: Configuration = {
   },
   cache: {
     cacheLocation: "localStorage",
-    storeAuthStateInCookie: true,
+    // storeAuthStateInCookie is not a valid property in standard MSAL browser configuration or defaults to false/auto. 
+    // If needed for IE11, it is storeAuthStateInCookie: true, but better to omit if type error.
   },
+
 };
 
-// Create the MSAL instance
-export const msalInstance = typeof window !== "undefined" && azureAuthEnabled 
-  ? new PublicClientApplication(msalConfig) 
-  : null;
+export const msalInstance = new PublicClientApplication(msalConfig);
 
-// Helper to ensure MSAL is initialized (required for v3)
-let msalInitialized = false;
-export async function initializeMsal(): Promise<PublicClientApplication | null> {
-    if (!msalInstance) return null;
-    if (msalInitialized) return msalInstance;
-    
-    try {
-        await msalInstance.initialize();
-        msalInitialized = true;
-        return msalInstance;
-    } catch (error) {
-        console.error("MSAL Initialization failed:", error);
-        return null;
-    }
-}
-
-// Login request scope
 export const loginRequest = {
   scopes: [
-    process.env.NEXT_PUBLIC_AZURE_SCOPE || "",
-    "openid",
-    "profile",
-    "offline_access",
-    "User.Read.All" // Required for searching other users
-  ].filter(Boolean) as string[],
+    process.env.NEXT_PUBLIC_AZURE_SCOPE || "api://" + process.env.NEXT_PUBLIC_AZURE_CLIENT_ID + "/access_as_user",
+    "User.Read", 
+    "User.Read.All", 
+    "openid", 
+    "profile", 
+    "offline_access"
+  ]
 };
 
+
 export const graphScopes = ["User.Read.All"];
+
 
