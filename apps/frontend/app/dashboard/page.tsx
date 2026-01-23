@@ -170,8 +170,9 @@ export default function DashboardPage() {
   })
 
   const [isGenerating, setIsGenerating] = useState(false)
-  const [showPreview, setShowPreview] = useState(false)
+  const [showFullScreenPreview, setShowFullScreenPreview] = useState(false) 
   const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null)
+  const [isPreviewLoading, setIsPreviewLoading] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
 
   const [showConfirmDialog, setShowConfirmDialog] = useState(false)
@@ -186,6 +187,59 @@ export default function DashboardPage() {
       setFormData((prev) => ({ ...prev, creatorName: user.name || "" }))
     }
   }, [user])
+
+  const generateLivePreview = async () => {
+    setIsPreviewLoading(true)
+    try {
+      const canvas = document.createElement("canvas")
+      canvas.width = 1080
+      canvas.height = 1350
+      const ctx = canvas.getContext("2d")
+      if (!ctx) return
+
+      const previewData = {
+        template: { ...selectedTemplate, icon: selectedTemplate.name },
+        recipientName: formData.recipientName || "Recipient Name",
+        designation: "",
+        message: formData.message || "Your appreciation message will appear here...",
+        creatorName: formData.creatorName || (user?.name || "Your Name"),
+        image: formData.image,
+        images: formData.images,
+        recipientType: formData.recipientType,
+        recipientEmails: []
+      }
+
+      await generateKudosCardToCanvas(canvas, previewData)
+
+      canvas.toBlob((blob) => {
+        if (blob) {
+          const url = URL.createObjectURL(blob)
+          setPreviewImageUrl((prev) => {
+            if (prev) URL.revokeObjectURL(prev)
+            return url
+          })
+        }
+      }, "image/png")
+    } catch (e) {
+      console.error("Preview generation failed", e)
+    } finally {
+      setIsPreviewLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    const timer = setTimeout(() => generateLivePreview(), 800)
+    return () => clearTimeout(timer)
+  }, [
+    formData.recipientName, 
+    formData.message, 
+    formData.creatorName, 
+    formData.image, 
+    formData.images, 
+    formData.recipientType, 
+    selectedTemplate 
+  ])
+
 
   // Sync recipientName based on recipients list
   useEffect(() => {
@@ -494,40 +548,11 @@ export default function DashboardPage() {
     window.location.href = "/dashboard/my-cards"
   }
   
-  // Preview logic fallback requires re-implementing `handlePreviewGenerated` similar to `handleGenerateCard`
-  const handlePreviewGenerated = async () => {
-     if (!validateForm()) return
-     setIsGenerating(true)
-     try {
-       const canvas = document.createElement("canvas")
-       canvas.width = 1080
-       canvas.height = 1350
-       const ctx = canvas.getContext("2d")
-       if (!ctx) throw new Error("No Context")
-       
-       await generateKudosCardToCanvas(canvas, {
-          template: selectedTemplate,
-          recipientName: formData.recipientName,
-          message: formData.message,
-          creatorName: formData.creatorName,
-          image: formData.image,
-          images: formData.images,
-          recipientType: formData.recipientType,
-       } as any) // Cast as any because generateCardToCanvas interface might not strictly match the extended props if not updated in definition file (but I did update it)
-
-       canvas.toBlob((blob) => {
-         if (blob) {
-           const url = URL.createObjectURL(blob)
-           setPreviewImageUrl(url)
-           setShowPreview(true)
-         }
-       }, "image/png")
-     } catch(e) {
-         console.error(e)
-     } finally {
-         setIsGenerating(false)
-     }
+  // Full screen preview trigger
+  const handlePreviewGenerated = () => {
+      setShowFullScreenPreview(true)
   }
+
 
   return (
     <>
@@ -694,12 +719,12 @@ export default function DashboardPage() {
                   <div className="flex gap-2">
                     <Button
                       onClick={handlePreviewGenerated}
-                      disabled={!isFormValid || isGenerating}
+                      disabled={!previewImageUrl}
                       variant="outline"
                       className="border-primary text-primary hover:bg-primary/10 font-medium px-4 py-2 disabled:opacity-50 bg-transparent"
                     >
                       <Award className="w-4 h-4 mr-2" />
-                      {isGenerating ? "Generating..." : "Preview"}
+                      Full Screen
                     </Button>
                     <Button
                       onClick={handleGenerateCard}
@@ -712,20 +737,24 @@ export default function DashboardPage() {
                   </div>
                 </div>
 
-                <div className="bg-gradient-to-br from-card to-muted/20 rounded-xl border border-border p-6 aspect-[4/5] flex flex-col justify-between shadow-inner px-0 py-0">
-                   {/* 
-                      Note: Using a simple preview container instead of replicating the complex canvas logic here.
-                      The 'Preview' button handles the actual canvas generation for accurate preview.
-                   */}
-                   {showPreview && previewImageUrl ? (
+                <div className="bg-gradient-to-br from-card to-muted/20 rounded-xl border border-border p-6 aspect-[4/5] flex flex-col justify-between shadow-inner px-0 py-0 overflow-hidden relative">
+                   {/* Live Sidebar Preview */}
+                   {isPreviewLoading && (
+                       <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/10 backdrop-blur-[1px]">
+                           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                       </div>
+                   )}
+                   
+                   {previewImageUrl ? (
                        <img src={previewImageUrl} alt="Preview" className="w-full h-full object-contain rounded-xl" />
                    ) : (
                        <div className="w-full h-full flex flex-col items-center justify-center text-muted-foreground bg-muted/20 rounded-xl p-6 text-center">
                            <Award className="w-12 h-12 mb-2 text-muted-foreground/50" />
-                           <p>Fill out the form and click "Preview" to see your card here</p>
+                           <p>Generating preview...</p>
                        </div>
                    )}
                 </div>
+
               </CardContent>
             </Card>
           </div>
@@ -788,16 +817,17 @@ export default function DashboardPage() {
         )}
 
         {/* Preview Modal (Full Screen) */}
-        {showPreview && previewImageUrl && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4" onClick={() => setShowPreview(false)}>
+        {showFullScreenPreview && previewImageUrl && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4" onClick={() => setShowFullScreenPreview(false)}>
             <div className="relative max-h-[90vh] max-w-[90vw] overflow-auto" onClick={e => e.stopPropagation()}>
                 <img src={previewImageUrl} alt="Card Preview" className="max-w-full max-h-[85vh] rounded-lg shadow-2xl" />
                 <Button 
                     className="absolute top-2 right-2 rounded-full p-2 h-auto" 
                     variant="destructive"
-                    onClick={() => setShowPreview(false)}
+                    onClick={() => setShowFullScreenPreview(false)}
                 >
                      <p className="sr-only">Close</p>
+
                      <span className="text-white font-bold">X</span>
                 </Button>
             </div>
