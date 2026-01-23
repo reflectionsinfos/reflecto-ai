@@ -12,6 +12,7 @@ interface KudosCardData {
   creatorName: string
   image?: File | null
   images?: File[] | null
+  recipientType?: "individual" | "team"
 }
 
 export async function generateKudosCardToCanvas(canvas: HTMLCanvasElement, data: KudosCardData): Promise<void> {
@@ -88,7 +89,12 @@ async function generateCustomerCentricChampion(
   await new Promise((resolve, reject) => {
     backgroundImg.onload = resolve
     backgroundImg.onerror = reject
-    backgroundImg.src = "/images/customer-centric-champion.png"
+    // Use plural version for team
+    if (data.recipientType === "team") {
+      backgroundImg.src = "/images/customer-centric-champions.png"
+    } else {
+      backgroundImg.src = "/images/customer-centric-champion.png"
+    }
   })
 
   // Draw background to fill entire canvas
@@ -302,7 +308,11 @@ async function generateAgilityChampion(
     await new Promise((resolve, reject) => {
       backgroundImg.onload = resolve
       backgroundImg.onerror = reject
-      backgroundImg.src = "/images/agility-champion.png"
+      if (data.recipientType === "team") {
+        backgroundImg.src = "/images/agility-champions.png"
+      } else {
+        backgroundImg.src = "/images/agility-champion.png"
+      }
     })
 
     ctx.drawImage(backgroundImg, 0, 0, canvas.width, canvas.height)
@@ -326,20 +336,18 @@ async function generateAgilityChampion(
     trophyImg.src = "/images/agility-trophy.png"
   })
 
-  const trophyWidth = 990
-  const trophyHeight = 1300
-  ctx.drawImage(trophyImg, 0, 20, trophyWidth, trophyHeight)
-
-  // Draw employee photo or team grid
+  // Draw employee photo or team grid (Draw BEFORE trophy for correct layering)
   if (data.images && data.images.length > 1) {
     await drawTeamPhotos(ctx, data, 500, 450, 400, 400, 20)
   } else {
     // Single image fallback (either data.image or data.images[0])
-    // Ensure we handle the case where data.image might be null but data.images has 1 file
     const file = data.image || (data.images && data.images[0]) || null;
-    // Create a temp data object with just the single file for the helper
     await drawEmployeePhoto(ctx, { ...data, image: file }, 500, 450, 400, 400, 20)
   }
+
+  const trophyWidth = 990
+  const trophyHeight = 1300
+  ctx.drawImage(trophyImg, 0, 20, trophyWidth, trophyHeight)
 
   // Draw content
   ctx.fillStyle = "#ffffff"
@@ -371,7 +379,11 @@ async function generateContinuousImprovementChampion(
     await new Promise((resolve, reject) => {
       backgroundImg.onload = resolve
       backgroundImg.onerror = reject
-      backgroundImg.src = "/images/continuous-improvement-champion.png"
+      if (data.recipientType === "team") {
+        backgroundImg.src = "/images/continuous-improvement-champions.png"
+      } else {
+        backgroundImg.src = "/images/continuous-improvement-champion.png"
+      }
     })
 
     ctx.drawImage(backgroundImg, 0, 0, canvas.width, canvas.height)
@@ -394,14 +406,15 @@ async function generateContinuousImprovementChampion(
     trophyImg.src = "/images/continuous-trophy.png"
   })
 
-  ctx.drawImage(trophyImg, 0, 20, 990, 1300)
-  
+  // Draw BEFORE trophy
   if (data.images && data.images.length > 1) {
       await drawTeamPhotos(ctx, data, 500, 450, 400, 400, 20)
   } else {
       const file = data.image || (data.images && data.images[0]) || null;
       await drawEmployeePhoto(ctx, { ...data, image: file }, 500, 450, 400, 400, 20)
   }
+
+  ctx.drawImage(trophyImg, 0, 20, 990, 1300)
 
   ctx.fillStyle = "#ffffff"
   drawScaledText(ctx, data.recipientName.toUpperCase(), canvas.width / 2, 960, 1000, 56, poppinsFont)
@@ -432,7 +445,11 @@ async function generateCollaborationChampion(
     await new Promise((resolve, reject) => {
       backgroundImg.onload = resolve
       backgroundImg.onerror = reject
-      backgroundImg.src = "/images/collaboration-champion.png"
+      if (data.recipientType === "team") {
+        backgroundImg.src = "/images/collaboration-champions.png"
+      } else {
+        backgroundImg.src = "/images/collaboration-champion.png"
+      }
     })
 
     ctx.drawImage(backgroundImg, 0, 0, canvas.width, canvas.height)
@@ -455,14 +472,15 @@ async function generateCollaborationChampion(
     trophyImg.src = "/images/collaboration-trophy.png"
   })
 
-  ctx.drawImage(trophyImg, 0, 20, 990, 1300)
-  
+  // Draw BEFORE trophy
   if (data.images && data.images.length > 1) {
       await drawTeamPhotos(ctx, data, 500, 450, 400, 400, 20)
   } else {
       const file = data.image || (data.images && data.images[0]) || null;
       await drawEmployeePhoto(ctx, { ...data, image: file }, 500, 450, 400, 400, 20)
   }
+
+  ctx.drawImage(trophyImg, 0, 20, 990, 1300)
 
   ctx.fillStyle = "#ffffff"
   drawScaledText(ctx, data.recipientName.toUpperCase(), canvas.width / 2, 960, 1000, 56, poppinsFont)
@@ -493,7 +511,11 @@ async function generateAccountabilityChampion(
     await new Promise((resolve, reject) => {
       backgroundImg.onload = resolve
       backgroundImg.onerror = reject
-      backgroundImg.src = "/images/accountability-champion.png"
+      if (data.recipientType === "team") {
+        backgroundImg.src = "/images/accountability-champions.png"
+      } else {
+        backgroundImg.src = "/images/accountability-champion.png"
+      }
     })
 
     ctx.drawImage(backgroundImg, 0, 0, canvas.width, canvas.height)
@@ -516,8 +538,15 @@ async function generateAccountabilityChampion(
     trophyImg.src = "/images/accountability-trophy.png"
   })
 
+  // Draw BEFORE trophy - Adding missing team logic for Accountability
+  if (data.images && data.images.length > 1) {
+       await drawTeamPhotos(ctx, data, 500, 450, 400, 400, 20)
+  } else {
+       const file = data.image || (data.images && data.images[0]) || null;
+       await drawEmployeePhoto(ctx, { ...data, image: file }, 500, 450, 400, 400, 20)
+  }
+
   ctx.drawImage(trophyImg, 0, 20, 990, 1300)
-  await drawEmployeePhoto(ctx, data, 500, 450, 400, 400, 20)
 
   ctx.fillStyle = "#ffffff"
   drawScaledText(ctx, data.recipientName.toUpperCase(), canvas.width / 2, 960, 1000, 56, poppinsFont)
