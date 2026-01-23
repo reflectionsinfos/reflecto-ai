@@ -3,6 +3,8 @@ import { pgSchema, varchar, text, timestamp, json, uuid, boolean } from "drizzle
 // Define schema namespace
 export const mySchema = pgSchema("reflecto-ai");
 
+
+
 // Tenants Table
 export const tenants = mySchema.table("tenants", {
   id: uuid("id").primaryKey().defaultRandom(),

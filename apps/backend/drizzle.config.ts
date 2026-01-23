@@ -8,6 +8,8 @@ export default defineConfig({
   out: "./drizzle",
   dialect: "postgresql",
   schemaFilter: ["reflecto-ai"],
+
+
   dbCredentials: {
     url: process.env.DATABASE_URL!,
   },
