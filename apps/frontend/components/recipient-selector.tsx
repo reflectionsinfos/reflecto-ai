@@ -11,6 +11,7 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
+  CommandSeparator,
 } from "@/components/ui/command";
 import {
   Popover,
@@ -63,6 +64,23 @@ export function RecipientSelector({
 
     return () => clearTimeout(timer);
   }, [query, isAuthenticated]);
+
+  const handleAddManual = () => {
+      const manualUser: GraphUser = {
+          id: `manual-${Date.now()}`,
+          displayName: query,
+          mail: "",
+          userPrincipalName: ""
+      };
+      if (type === "individual") {
+          onRecipientsChange([manualUser]);
+          setOpen(false);
+      } else {
+          onRecipientsChange([...selectedRecipients, manualUser]);
+          setQuery("");
+      }
+      setSearchResults([]);
+  };
 
   const handleSelect = (user: GraphUser) => {
     if (type === "individual") {
@@ -154,7 +172,16 @@ export function RecipientSelector({
                    </div>
                 )}
                 {!loading && query.length >= 3 && searchResults.length === 0 && (
-                   <CommandEmpty>No user found.</CommandEmpty>
+                   <div className="p-2">
+                       <p className="text-sm text-center text-muted-foreground py-2">No user found.</p>
+                       <Button 
+                           variant="secondary" 
+                           onClick={handleAddManual}
+                           className="w-full text-xs"
+                        >
+                           + Add "{query}" manually
+                       </Button>
+                   </div>
                 )}
                 {!loading && searchResults.map((user) => (
                   <CommandItem

@@ -253,12 +253,11 @@ export default function DashboardPage() {
         setFormData(prev => ({ ...prev, recipientName: formData.recipients[0].displayName }));
     } else {
         // Team Logic
-        const names = formData.recipients.map(u => u.displayName.split(' ')[0]); // First names
-        if (names.length <= 3) {
-            setFormData(prev => ({ ...prev, recipientName: names.join(", ") }));
-        } else {
-            setFormData(prev => ({ ...prev, recipientName: `Team ${formData.recipients[0].displayName.split(' ')[0]} & Co` }));
-        }
+        const getFirstName = (name: string) => name.split(' ')[0].split('@')[0];
+        
+        const names = formData.recipients.map(u => getFirstName(u.displayName));
+        // Always show all names (scaler will handle fitting)
+        setFormData(prev => ({ ...prev, recipientName: names.join(", ") }));
     }
   }, [formData.recipients, formData.recipientType]);
 

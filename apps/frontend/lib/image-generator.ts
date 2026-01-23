@@ -190,10 +190,7 @@ async function generateCustomerCentricChampion(
   ctx.drawImage(trophyImg, trophyX, trophyY, trophyWidth, trophyHeight)
 
   // Draw recipient name
-  ctx.fillStyle = "#ffffff"
-  ctx.font = `700 56px ${poppinsFont}`
-  ctx.textAlign = "center"
-  ctx.fillText(data.recipientName.toUpperCase(), canvas.width / 2, 960)
+  drawScaledText(ctx, data.recipientName.toUpperCase(), canvas.width / 2, 960, 1000, 56, poppinsFont)
 
   // Draw recognition message
   ctx.fillStyle = "#ffffff"
@@ -274,8 +271,7 @@ async function generateGenericTemplate(
 
   // Add recipient name
   ctx.fillStyle = "#1f2937"
-  ctx.font = "bold 56px Arial, sans-serif"
-  ctx.fillText(data.recipientName, canvas.width / 2, 600)
+  drawScaledText(ctx, data.recipientName, canvas.width / 2, 600, cardWidth - 40, 56, "Arial, sans-serif")
 
   // Add designation
   ctx.fillStyle = "#6b7280"
@@ -347,9 +343,7 @@ async function generateAgilityChampion(
 
   // Draw content
   ctx.fillStyle = "#ffffff"
-  ctx.font = `700 56px ${poppinsFont}`
-  ctx.textAlign = "center"
-  ctx.fillText(data.recipientName.toUpperCase(), canvas.width / 2, 960)
+  drawScaledText(ctx, data.recipientName.toUpperCase(), canvas.width / 2, 960, 1000, 56, poppinsFont)
 
   ctx.fillStyle = "#ffffff"
   ctx.font = `400 32px ${poppinsFont}`
@@ -410,9 +404,7 @@ async function generateContinuousImprovementChampion(
   }
 
   ctx.fillStyle = "#ffffff"
-  ctx.font = `700 56px ${poppinsFont}`
-  ctx.textAlign = "center"
-  ctx.fillText(data.recipientName.toUpperCase(), canvas.width / 2, 960)
+  drawScaledText(ctx, data.recipientName.toUpperCase(), canvas.width / 2, 960, 1000, 56, poppinsFont)
 
   ctx.fillStyle = "#ffffff"
   ctx.font = `400 32px ${poppinsFont}`
@@ -473,9 +465,7 @@ async function generateCollaborationChampion(
   }
 
   ctx.fillStyle = "#ffffff"
-  ctx.font = `700 56px ${poppinsFont}`
-  ctx.textAlign = "center"
-  ctx.fillText(data.recipientName.toUpperCase(), canvas.width / 2, 960)
+  drawScaledText(ctx, data.recipientName.toUpperCase(), canvas.width / 2, 960, 1000, 56, poppinsFont)
 
   ctx.fillStyle = "#ffffff"
   ctx.font = `400 32px ${poppinsFont}`
@@ -530,9 +520,7 @@ async function generateAccountabilityChampion(
   await drawEmployeePhoto(ctx, data, 500, 450, 400, 400, 20)
 
   ctx.fillStyle = "#ffffff"
-  ctx.font = `700 56px ${poppinsFont}`
-  ctx.textAlign = "center"
-  ctx.fillText(data.recipientName.toUpperCase(), canvas.width / 2, 960)
+  drawScaledText(ctx, data.recipientName.toUpperCase(), canvas.width / 2, 960, 1000, 56, poppinsFont)
 
   ctx.fillStyle = "#ffffff"
   ctx.font = `400 32px ${poppinsFont}`
@@ -797,5 +785,35 @@ async function drawImageCover(ctx: CanvasRenderingContext2D, img: HTMLImageEleme
     }
 
     ctx.drawImage(img, drawX, drawY, drawWidth, drawHeight);
+    ctx.drawImage(img, drawX, drawY, drawWidth, drawHeight);
     ctx.restore();
 }
+
+function drawScaledText(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  centerX: number,
+  y: number,
+  maxWidth: number,
+  initialFontSize: number,
+  fontFamily: string
+) {
+  ctx.textAlign = "center"
+  // ctx.fillStyle is assumed to be set before calling this function
+  
+  let fontSize = initialFontSize
+  ctx.font = `700 ${fontSize}px ${fontFamily}`
+  
+  // Measure width
+  let width = ctx.measureText(text).width
+  
+  // Scale down if too wide, but don't go below 24px
+  while (width > maxWidth && fontSize > 24) {
+      fontSize -= 2
+      ctx.font = `700 ${fontSize}px ${fontFamily}`
+      width = ctx.measureText(text).width
+  }
+  
+  ctx.fillText(text, centerX, y)
+}
+
