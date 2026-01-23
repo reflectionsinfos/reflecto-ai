@@ -698,6 +698,8 @@ async function drawTeamPhotos(
 ): Promise<void> {
     if (!data.images || data.images.length === 0) return;
 
+    ctx.save(); // Save state before clipping
+
     // White frame
     ctx.fillStyle = "#ffffff"
     ctx.beginPath()
@@ -731,7 +733,10 @@ async function drawTeamPhotos(
         }
     }
 
-    if (loadedImages.length === 0) return;
+    if (loadedImages.length === 0) {
+        ctx.restore();
+        return;
+    }
 
     /*
       Layouts:
@@ -764,6 +769,8 @@ async function drawTeamPhotos(
         await drawImageCover(ctx, loadedImages[2], x, y + h + gap, w, h);
         await drawImageCover(ctx, loadedImages[3], x + w + gap, y + h + gap, w, h);
     }
+
+    ctx.restore(); // Restore context to remove clipping
 }
 
 async function drawImageCover(ctx: CanvasRenderingContext2D, img: HTMLImageElement, x: number, y: number, w: number, h: number) {

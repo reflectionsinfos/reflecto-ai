@@ -10,6 +10,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import {
   Upload,
+  X,
   Download,
   Award,
   Users,
@@ -184,7 +185,7 @@ export default function DashboardPage() {
   // Sync creator name when user loads
   useEffect(() => {
     if (user) {
-      setFormData((prev) => ({ ...prev, creatorName: user.name || "" }))
+      setFormData((prev) => ({ ...prev, creatorName: user.email || user.name || "" }))
     }
   }, [user])
 
@@ -321,6 +322,18 @@ export default function DashboardPage() {
     setErrors(prev => ({ ...prev, image: "" }));
   }
 
+  const handleRemoveImage = (index: number) => {
+    setFormData(prev => {
+        const newImages = [...prev.images];
+        newImages.splice(index, 1);
+        return {
+            ...prev,
+            images: newImages,
+            image: newImages.length > 0 ? newImages[0] : null
+        };
+    });
+  };
+
   const validateForm = () => {
     const newErrors: Record<string, string> = {}
 
@@ -352,7 +365,17 @@ export default function DashboardPage() {
   }
 
   const handleGenerateCard = async () => {
-    if (!validateForm()) return
+    if (!validateForm()) {
+        toast({
+            title: "Missing Fields",
+            description: "Please fill in all required fields to generate the card.",
+            variant: "destructive",
+            duration: 3000,
+        })
+        // Scroll to top to show errors
+        window.scrollTo({ top: 0, behavior: "smooth" })
+        return
+    }
 
     setIsGenerating(true)
     try {
@@ -675,10 +698,18 @@ export default function DashboardPage() {
                     {formData.images.length > 0 && (
                         <div className="flex flex-wrap gap-2 mt-2">
                             {formData.images.map((f, i) => (
-                                <p key={i} className="text-sm text-accent flex items-center gap-2">
-                                    <span className="w-2 h-2 bg-accent rounded-full"></span>
-                                    {f.name}
-                                </p>
+                                <div key={i} className="flex items-center gap-1 bg-accent/10 px-2 py-1 rounded-full border border-accent/20">
+                                    <span className="text-xs text-accent font-medium max-w-[150px] truncate" title={f.name}>
+                                        {f.name}
+                                    </span>
+                                    <button
+                                        onClick={() => handleRemoveImage(i)}
+                                        className="text-accent hover:text-destructive transition-colors"
+                                        type="button"
+                                    >
+                                        <X className="w-3 h-3" />
+                                    </button>
+                                </div>
                             ))}
                         </div>
                     )}
@@ -694,9 +725,7 @@ export default function DashboardPage() {
                       placeholder="Enter your name"
                       value={formData.creatorName}
                       onChange={(e) => handleInputChange("creatorName", e.target.value)}
-                      className={`h-10 bg-muted border-border text-muted-foreground ${errors.creatorName ? "border-destructive" : "focus:ring-accent focus:border-accent"}`}
-                      readOnly
-                      disabled
+                      className={`h-10 bg-input border-border text-foreground ${errors.creatorName ? "border-destructive" : "focus:ring-accent focus:border-accent"}`}
                     />
                     <p className="text-xs text-muted-foreground mt-1">
                       This field is automatically populated from your login. Will be dynamic once SSO is implemented.
@@ -726,9 +755,9 @@ export default function DashboardPage() {
                       <Award className="w-4 h-4 mr-2" />
                       Full Screen
                     </Button>
-                    <Button
+                <Button
                       onClick={handleGenerateCard}
-                      disabled={!isFormValid || isGenerating}
+                      disabled={isGenerating}
                       className="bg-primary hover:bg-primary/90 text-primary-foreground font-medium px-6 py-2 disabled:opacity-50 shadow-md"
                     >
                       <Download className="w-4 h-4 mr-2" />
