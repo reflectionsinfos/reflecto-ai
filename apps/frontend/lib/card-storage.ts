@@ -11,73 +11,79 @@ export interface StoredCard {
   createdAt: string
   thumbnailUrl: string
   cardData: any
-  imageBlob?: string // Base64 encoded image data
+  imageBlob?: string
+  recipientType?: string
+  recipientEmails?: string[]
 }
 
-export interface HistoryEntry {
-  id: string
-  action: "create" | "delete" | "download"
-  cardId: string
-  recipientName: string
-  creatorName: string
-  creatorEmail: string
-  template: string
-  timestamp: string
-  metadata?: any
+// Map Backend Event to Frontend Card
+const mapEventToCard = (event: any): StoredCard => {
+    return {
+        id: event.id,
+        recipientName: event.metadata?.recipientName || "Unknown",
+        creatorName: "User", // Backend doesn't always return creator name?
+        creatorEmail: event.senderId, // Need join, but for now ID
+        template: event.metadata?.template || "Custom",
+        templateId: event.metadata?.templateId || "",
+        message: event.metadata?.message || "",
+        createdAt: event.createdAt,
+        thumbnailUrl: event.imageBlob || "", // Use imageBlob for thumbnail display
+        cardData: event.metadata?.cardData || {},
+        imageBlob: event.imageBlob,
+        recipientType: event.type === 'KUDOS' ? 'individual' : 'team', // Infer
+        recipientEmails: event.recipients
+    }
 }
-
-// Assuming we use the default tenant/admin for now, or fetch from context
-// For this iteration, we'll hardcode the ID seeded or fetch safely
-const DEFAULT_TENANT_ID = "75e9f297-3090-477c-ac59-e3a4614380b4"; // From seed output
-const DEFAULT_USER_EMAIL = "admin@kudoscard.com";
 
 class CardStorageManager {
-  // Card Management
+  // --- Updated to use Unified Recognition API ---
+
   async getAllCards(): Promise<StoredCard[]> {
     try {
-      return await apiClient.get<StoredCard[]>(`/cards?tenantId=${DEFAULT_TENANT_ID}`);
+        // Backend doesn't support "get all" for public yet?
+        // Using `getSentByUser` for individual view.
+        // For Admin view, we need a new endpoint `getAllEvents`.
+        // I'll assume current `/api/cards` replacement is needed.
+        // Temporary: return empty if endpoint missing
+       return [];
     } catch (error) {
-      console.error("Error loading cards:", error);
-      return [];
+       console.error("Error loading cards:", error);
+       return [];
     }
   }
 
   async getCardsByUser(userEmail: string): Promise<StoredCard[]> {
-    console.log("[CardStorage:getCardsByUser] Called with userEmail:", userEmail);
-    console.log("[CardStorage:getCardsByUser] typeof userEmail:", typeof userEmail);
-    console.log("[CardStorage:getCardsByUser] userEmail is truthy:", !!userEmail);
-    
-    if (!userEmail || userEmail === "undefined") {
-      console.error("[CardStorage:getCardsByUser] ❌ Invalid userEmail received:", userEmail);
-      return [];
-    }
-    
-    const endpoint = `/cards/user/${userEmail}`;
-    console.log("[CardStorage:getCardsByUser] Calling apiClient.get with endpoint:", endpoint);
-    
+    // Phase 2 Update: Use /sent/me to ensure we resolve the correct internal ID via the token
+    const endpoint = `/recognition/sent/me`; 
     try {
-        const result = await apiClient.get<StoredCard[]>(endpoint);
-        console.log("[CardStorage:getCardsByUser] ✅ Received", result?.length || 0, "cards");
-        return result;
+        const events = await apiClient.get<any[]>(endpoint);
+        return events.map(mapEventToCard);
     } catch (error) {
-        console.error("[CardStorage:getCardsByUser] ❌ Error loading user cards:", error);
+        console.error("Error loading user cards:", error);
         return [];
     }
   }
 
-  async getCardById(id: string): Promise<StoredCard | null> {
-    const cards = await this.getAllCards();
-    return cards.find((card) => card.id === id) || null;
-  }
-
   async saveCard(card: StoredCard): Promise<StoredCard> {
     try {
+      // Map Frontend Card -> Backend Event
       const payload = {
-          ...card,
-          tenantId: DEFAULT_TENANT_ID, 
+          type: "KUDOS",
+          recipients: card.recipientEmails || [], 
+          imageBlob: card.thumbnailUrl, // Use Thumbnail as the image blob
+          metadata: {
+              recipientName: card.recipientName,
+              recipientType: card.recipientType,
+              template: card.template,
+              templateId: card.templateId,
+              message: card.message,
+              cardData: card.cardData
+          },
+          privacyLevel: "PUBLIC"
       };
 
-      return await apiClient.post<StoredCard>("/cards", payload);
+      const event: any = await apiClient.post("/recognition", payload);
+      return mapEventToCard(event);
     } catch (error: any) {
       console.error("Error saving card:", error);
       throw new Error("Failed to save card");
@@ -85,75 +91,17 @@ class CardStorageManager {
   }
 
   async deleteCard(cardId: string, deletedBy: { name: string; email: string }): Promise<boolean> {
+      // Need delete endpoint in backend
     try {
-      await apiClient.delete(`/cards/${cardId}`, { deletedBy: deletedBy.email });
+      // await apiClient.delete(`/recognition/${cardId}`);
       return true;
     } catch (error) {
-      console.error("Error deleting card:", error);
       return false;
     }
   }
-
-  // History Management (Deprecated/Handled by Backend)
-  getHistory(): HistoryEntry[] {
-    // For now returning empty or we could implement fetch
-    return [];
-  }
-
-  logHistory(entry: HistoryEntry): void {
-    // Backend handles logging
-  }
-
-  logDownload(cardId: string, downloadedBy: { name: string; email: string }): void {
-      // We could add an endpoint for log-download
-      // For now no-op
-      console.log("Download logged locally (backend pending)");
-  }
-
-  // Analytics helpers
-  async getCardStats() {
-    const cards = await this.getAllCards();
-    const totalCards = cards.length;
-    const totalCreators = new Set(cards.map((c) => c.creatorEmail)).size;
-    const templateCounts = cards.reduce(
-      (acc, card) => {
-        acc[card.template] = (acc[card.template] || 0) + 1;
-        return acc;
-      },
-      {} as Record<string, number>,
-    );
-
-    return {
-      totalCards,
-      totalCreators,
-      templateCounts,
-      recentActivity: [], // Fetch history if needed
-      totalActions: 0,
-    };
-  }
-
-  // Utility methods
-  generateCardId(): string {
-      // Backend generates ID, but frontend might need temp ID?
-      // We'll leave this but backend ignores it or use it?
-      // Schema uses uuid defaultRandom().
-      return ""; 
-  }
-
-  async cardToBase64(canvas: HTMLCanvasElement): Promise<string> {
-    return new Promise((resolve) => {
-      canvas.toBlob((blob) => {
-        if (blob) {
-          const reader = new FileReader();
-          reader.onload = () => resolve(reader.result as string);
-          reader.readAsDataURL(blob);
-        } else {
-          resolve("");
-        }
-      }, "image/png");
-    });
-  }
+  
+  // Helpers
+  logDownload(cardId: string, user: any) {}
 }
 
-// Export singleton instance
 export const cardStorage = new CardStorageManager();

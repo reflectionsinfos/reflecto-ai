@@ -64,8 +64,8 @@ export default function MyCardsPage() {
             setCards(sortedCards)
             setFilteredCards(sortedCards)
           } else {
-            if (currentUser?.email) {
-                const userCards = await cardStorage.getCardsByUser(currentUser.email)
+            if (currentUser?.id) {
+                const userCards = await cardStorage.getCardsByUser(currentUser.id)
                 const sortedCards = userCards.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
                 setCards(sortedCards)
                 setFilteredCards(sortedCards)

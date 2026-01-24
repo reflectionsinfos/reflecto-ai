@@ -7,7 +7,7 @@ export default defineConfig({
   schema: "./src/db/schema.ts",
   out: "./drizzle",
   dialect: "postgresql",
-  schemaFilter: ["reflecto-ai"],
+  schemaFilter: ["reflecto-ai-2"],
 
 
   dbCredentials: {

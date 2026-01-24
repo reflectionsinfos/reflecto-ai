@@ -1,0 +1,137 @@
+"use client"
+
+import * as React from "react"
+import Link from "next/link"
+import { usePathname } from "next/navigation"
+import {
+  LayoutDashboard,
+  Award,
+  Megaphone,
+  Radar,
+  User,
+  Search,
+  Settings,
+  Image as ImageIcon,
+  PartyPopper,
+  Briefcase
+} from "lucide-react"
+
+import { cn } from "@/lib/utils"
+import { Button } from "@/components/ui/button"
+import { ScrollArea } from "@/components/ui/scroll-area"
+import { Separator } from "@/components/ui/separator"
+
+interface SidebarProps extends React.HTMLAttributes<HTMLDivElement> {}
+
+export function AppSidebar({ className }: SidebarProps) {
+  const pathname = usePathname()
+
+  const apps = [
+    {
+      name: "Dashboard",
+      icon: LayoutDashboard,
+      href: "/dashboard",
+      color: "text-sky-500",
+    },
+    {
+      name: "Kudos Cards",
+      icon: Award,
+      href: "/dashboard/kudos",
+      color: "text-yellow-500",
+    },
+    {
+      name: "Shout Outs",
+      icon: Megaphone,
+      href: "/dashboard/shout-out",
+      color: "text-orange-500",
+    },
+    {
+      name: "My Posters",
+      icon: ImageIcon,
+      href: "/dashboard/my-cards",
+      color: "text-pink-500",
+    },
+  ]
+
+  const intelligence = [
+    {
+      name: "Tech Radar",
+      icon: Radar,
+      href: "/dashboard/tech-radar",
+      color: "text-purple-500",
+      comingSoon: true
+    },
+    {
+      name: "My Skills",
+      icon: User,
+      href: "/dashboard/my-skills",
+      color: "text-green-500",
+      comingSoon: true
+    },
+    {
+      name: "Talent Search",
+      icon: Search,
+      href: "/dashboard/talent-search",
+      color: "text-blue-500",
+      comingSoon: true
+    },
+  ]
+
+  return (
+    <div className={cn("pb-12 w-64 border-r bg-card h-screen fixed left-0 top-16 z-30 hidden lg:block", className)}>
+      <ScrollArea className="h-full py-6">
+        <div className="px-3 py-2">
+          <h2 className="mb-2 px-4 text-xs font-semibold tracking-tight text-muted-foreground uppercase">
+            Apps
+          </h2>
+          <div className="space-y-1">
+            {apps.map((app) => (
+              <Button
+                key={app.name}
+                variant={pathname === app.href ? "secondary" : "ghost"}
+                className="w-full justify-start font-normal"
+                asChild
+              >
+                <Link href={app.href}>
+                  <app.icon className={cn("mr-2 h-4 w-4", app.color)} />
+                  {app.name}
+                </Link>
+              </Button>
+            ))}
+          </div>
+        </div>
+        
+        <Separator className="my-4 mx-4 w-auto" />
+        
+        <div className="px-3 py-2">
+          <h2 className="mb-2 px-4 text-xs font-semibold tracking-tight text-muted-foreground uppercase">
+            Intelligence
+          </h2>
+          <div className="space-y-1">
+            {intelligence.map((item) => (
+              <Button
+                key={item.name}
+                variant={"ghost"}
+                className={cn("w-full justify-start font-normal", item.comingSoon && "opacity-60 cursor-not-allowed")}
+                asChild={!item.comingSoon}
+                disabled={item.comingSoon}
+              >
+                {item.comingSoon ? (
+                  <span className="flex w-full">
+                    <item.icon className={cn("mr-2 h-4 w-4", item.color)} />
+                    {item.name}
+                  </span>
+                ) : (
+                  <Link href={item.href}>
+                    <item.icon className={cn("mr-2 h-4 w-4", item.color)} />
+                    {item.name}
+                  </Link>
+                )}
+              </Button>
+            ))}
+          </div>
+        </div>
+      </ScrollArea>
+    </div>
+  )
+}

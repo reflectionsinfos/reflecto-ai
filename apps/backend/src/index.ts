@@ -7,7 +7,7 @@ import { errorHandler } from "./middleware/errorHandler";
 // Import Routes
 import tenantRoutes from "./routes/tenant.routes";
 import userRoutes from "./routes/user.routes";
-import cardRoutes from "./routes/card.routes";
+import recognitionRoutes from "./routes/recognition.routes";
 
 // Swagger
 import swaggerUi from "swagger-ui-express";
@@ -47,7 +47,7 @@ app.use(
 // Mount Module Routes
 app.use("/api/tenants", tenantRoutes);
 app.use("/api/users", userRoutes);
-app.use("/api/cards", cardRoutes);
+app.use("/api/recognition", recognitionRoutes);
 
 // Global Error Handler
 app.use(errorHandler);

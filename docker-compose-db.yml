@@ -1,0 +1,16 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: reflecto-db-vector
+    ports:
+      - "5433:5432" # Mapping to 5433 to avoid conflict with existing system Postgres (5432)
+    environment:
+      POSTGRES_USER: reflecto
+      POSTGRES_PASSWORD: "Reflecto@7896"
+      POSTGRES_DB: reflecto_prod
+    volumes:
+      - reflecto_pg_data:/var/lib/postgresql/data
+    restart: always
+
+volumes:
+  reflecto_pg_data:
