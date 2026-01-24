@@ -96,14 +96,19 @@ exports.cardService = {
         }
         await db_1.db.delete(schema_1.kudosCards).where((0, drizzle_orm_1.eq)(schema_1.kudosCards.id, id));
         // Log history
+        // Note: We cannot link to the cardId because it was just deleted
+        // and the FK constraint would fail (or cascade delete this log).
         await db_1.db.insert(schema_1.kudosHistory).values({
             action: "delete",
-            cardId: cardToDelete.id,
+            cardId: null, // Card is gone
             recipientName: cardToDelete.recipientName,
             creatorName: cardToDelete.creatorName,
             creatorEmail: cardToDelete.creatorEmail,
             template: cardToDelete.template,
-            metadata: { deletedBy }
+            metadata: {
+                deletedBy,
+                originalCardId: cardToDelete.id // Store ID in metadata for reference
+            }
         });
         return { success: true };
     }
