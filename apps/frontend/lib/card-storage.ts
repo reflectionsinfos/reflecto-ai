@@ -43,11 +43,24 @@ class CardStorageManager {
   }
 
   async getCardsByUser(userEmail: string): Promise<StoredCard[]> {
-    console.log(`cardStorage.getCardsByUser called for ${userEmail}`);
+    console.log("[CardStorage:getCardsByUser] Called with userEmail:", userEmail);
+    console.log("[CardStorage:getCardsByUser] typeof userEmail:", typeof userEmail);
+    console.log("[CardStorage:getCardsByUser] userEmail is truthy:", !!userEmail);
+    
+    if (!userEmail || userEmail === "undefined") {
+      console.error("[CardStorage:getCardsByUser] ❌ Invalid userEmail received:", userEmail);
+      return [];
+    }
+    
+    const endpoint = `/cards/user/${userEmail}`;
+    console.log("[CardStorage:getCardsByUser] Calling apiClient.get with endpoint:", endpoint);
+    
     try {
-        return await apiClient.get<StoredCard[]>(`/cards/user/${userEmail}`);
+        const result = await apiClient.get<StoredCard[]>(endpoint);
+        console.log("[CardStorage:getCardsByUser] ✅ Received", result?.length || 0, "cards");
+        return result;
     } catch (error) {
-        console.error("Error loading user cards:", error);
+        console.error("[CardStorage:getCardsByUser] ❌ Error loading user cards:", error);
         return [];
     }
   }
