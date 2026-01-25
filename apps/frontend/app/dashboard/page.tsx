@@ -60,20 +60,12 @@ export default function HubPage() {
 
   const growthApps = [
     {
-      name: "Tech Radar",
-      description: "Personalized tech news and project insights.",
+      name: "My Learning Path",
+      description: "AI-powered daily lessons tailored to your tech stack.",
       icon: Radar,
-      href: "/dashboard/tech-radar",
+      href: "/dashboard/learning",
       color: "bg-purple-600",
-      comingSoon: true,
-    },
-    {
-      name: "My Skills",
-      description: "Track your competencies and growth.",
-      icon: User,
-      href: "/dashboard/my-skills",
-      color: "bg-green-600",
-      comingSoon: true,
+      comingSoon: false,
     },
     {
       name: "Talent Search",

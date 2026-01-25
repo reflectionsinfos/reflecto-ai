@@ -8,6 +8,7 @@ import { errorHandler } from "./middleware/errorHandler";
 import tenantRoutes from "./routes/tenant.routes";
 import userRoutes from "./routes/user.routes";
 import recognitionRoutes from "./routes/recognition.routes";
+import learningRoutes from "./routes/learning.routes";
 
 // Swagger
 import swaggerUi from "swagger-ui-express";
@@ -48,6 +49,7 @@ app.use(
 app.use("/api/tenants", tenantRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/recognition", recognitionRoutes);
+app.use("/api/learning", learningRoutes);
 
 // Global Error Handler
 app.use(errorHandler);

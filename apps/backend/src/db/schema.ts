@@ -60,3 +60,89 @@ export const evidenceLogs = mySchema.table("evidence_logs", {
   // embedding: vector("embedding", { dimensions: 1536 }),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
+
+// --- Tech Growth Plan Tables ---
+
+// User Learning Profile (Tech stack, projects, goals)
+export const userLearningProfiles = mySchema.table("user_learning_profiles", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id").references(() => users.id).notNull().unique(),
+  currentProjects: json("current_projects").$type<string[]>().default([]),
+  techStack: json("tech_stack").$type<string[]>().default([]),
+  domain: varchar("domain", { length: 100 }),
+  learningGoals: text("learning_goals"),
+  monthlyObjectives: json("monthly_objectives").$type<{month: string, goals: string[]}[]>().default([]),
+  
+  // Organizational Alignment
+  organizationalPriorities: json("organizational_priorities").$type<string[]>().default([]), // Company/dept focus areas
+  managerNotes: text("manager_notes"), // Manager's input on learning direction
+  
+  // Approval Workflow
+  status: varchar("status", { length: 20 }).default('DRAFT'), // 'DRAFT', 'PENDING_APPROVAL', 'APPROVED', 'REVISION_REQUESTED'
+  submittedAt: timestamp("submitted_at"),
+  approvedBy: uuid("approved_by").references(() => users.id), // Manager's user ID
+  approvedAt: timestamp("approved_at"),
+  revisionComments: text("revision_comments"),
+  
+  preferredDelivery: varchar("preferred_delivery", { length: 20 }).default('teams'), // 'teams', 'email', 'both'
+  isActive: varchar("is_active", { length: 10 }).default('true'),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// AI-Generated Learning Content
+export const learningContent = mySchema.table("learning_content", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  topic: varchar("topic", { length: 200 }).notNull(),
+  techStack: varchar("tech_stack", { length: 100 }).notNull(),
+  difficulty: varchar("difficulty", { length: 20 }).notNull(), // 'beginner', 'intermediate', 'advanced'
+  lessonContent: text("lesson_content").notNull(), // Markdown format
+  exercise: json("exercise").$type<{question: string, hints: string[], solution?: string}>(),
+  quizQuestions: json("quiz_questions").$type<{question: string, options: string[], correctIndex: number, explanation: string}[]>(),
+  estimatedReadTime: integer("estimated_read_time").default(2), // minutes
+  aiModel: varchar("ai_model", { length: 50 }).default('gpt-4'),
+  generatedAt: timestamp("generated_at").defaultNow().notNull(),
+});
+
+// User Learning Progress (Daily tracking)
+export const userLearningProgress = mySchema.table("user_learning_progress", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id").references(() => users.id).notNull(),
+  contentId: uuid("content_id").references(() => learningContent.id),
+  deliveredAt: timestamp("delivered_at").defaultNow().notNull(),
+  deliveryMethod: varchar("delivery_method", { length: 20 }), // 'teams', 'email'
+  lessonViewed: varchar("lesson_viewed", { length: 10 }).default('false'),
+  exerciseCompleted: varchar("exercise_completed", { length: 10 }).default('false'),
+  exerciseSubmission: text("exercise_submission"),
+  quizScore: integer("quiz_score"), // 0-100
+  quizAnswers: json("quiz_answers").$type<number[]>(), // Array of selected option indices
+  quizSubmittedAt: timestamp("quiz_submitted_at"),
+  pointsEarned: integer("points_earned").default(0),
+  aiFeedback: text("ai_feedback"),
+  completedAt: timestamp("completed_at"),
+});
+
+// User Rewards & Gamification
+export const userRewards = mySchema.table("user_rewards", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id").references(() => users.id).notNull().unique(),
+  totalPoints: integer("total_points").default(0),
+  currentStreak: integer("current_streak").default(0), // Consecutive days
+  longestStreak: integer("longest_streak").default(0),
+  badges: json("badges").$type<{id: string, name: string, earnedAt: string}[]>().default([]),
+  level: integer("level").default(1),
+  lastActivityDate: timestamp("last_activity_date"),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Inferred Skills (Auto-populated from learning progress)
+export const inferredSkills = mySchema.table("inferred_skills", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id").references(() => users.id).notNull(),
+  skillName: varchar("skill_name", { length: 100 }).notNull(),
+  proficiencyLevel: integer("proficiency_level").default(0), // 0-100
+  lessonsCompleted: integer("lessons_completed").default(0),
+  lastPracticedAt: timestamp("last_practiced_at"),
+  source: varchar("source", { length: 50 }).default('LEARNING_PATH'), // 'LEARNING_PATH', 'KUDOS', 'PROJECT'
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});

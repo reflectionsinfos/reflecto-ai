@@ -55,18 +55,11 @@ export function AppSidebar({ className }: SidebarProps) {
 
   const intelligence = [
     {
-      name: "Tech Radar",
+      name: "My Learning Path",
       icon: Radar,
-      href: "/dashboard/tech-radar",
+      href: "/dashboard/learning",
       color: "text-purple-500",
-      comingSoon: true
-    },
-    {
-      name: "My Skills",
-      icon: User,
-      href: "/dashboard/my-skills",
-      color: "text-green-500",
-      comingSoon: true
+      comingSoon: false
     },
     {
       name: "Talent Search",
