@@ -46,4 +46,15 @@ router.get("/sent/me", authenticate(), async (req: any, res) => {
   }
 });
 
+// Get all recognitions
+router.get("/", authenticate(), async (req: any, res) => {
+  try {
+    const events = await RecognitionService.getAllEvents();
+    res.json(events);
+  } catch (error) {
+    console.error("Error fetching all recognitions:", error);
+    res.status(500).json({ error: "Failed to fetch recognitions" });
+  }
+});
+
 export default router;

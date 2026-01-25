@@ -40,12 +40,8 @@ class CardStorageManager {
 
   async getAllCards(): Promise<StoredCard[]> {
     try {
-        // Backend doesn't support "get all" for public yet?
-        // Using `getSentByUser` for individual view.
-        // For Admin view, we need a new endpoint `getAllEvents`.
-        // I'll assume current `/api/cards` replacement is needed.
-        // Temporary: return empty if endpoint missing
-       return [];
+        const events = await apiClient.get<any[]>("/recognition");
+        return events.map(mapEventToCard);
     } catch (error) {
        console.error("Error loading cards:", error);
        return [];

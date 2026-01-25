@@ -10,12 +10,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Megaphone, Layout, Download, CheckCircle, Image as ImageIcon } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { useAuth } from "@/hooks/use-auth"
-import { ShoutOutRecipientSelector } from "@/components/shout-out/recipient-selector"
-import { generateShoutOutToCanvas, ShoutOutCardData, downloadImage } from "@/lib/shout-out-generator" // Need to export downloadImage or re-import
+import { RecipientSelector } from "@/components/recipient-selector"
+import type { GraphUser } from "@/lib/graph-service"
+import { generateShoutOutToCanvas, ShoutOutCardData } from "@/lib/shout-out-generator"
 import { apiClient } from "@/lib/api-client"
 
 const CATEGORIES = [
     { id: "announcement", name: "Announcement", color: "bg-blue-500", gradient: "from-blue-500 to-blue-700" },
+    { id: "employees", name: "Employees", color: "bg-teal-500", gradient: "from-teal-500 to-teal-700" },
     { id: "milestone", name: "Project Milestone", color: "bg-green-500", gradient: "from-green-500 to-green-700" },
     { id: "welcome", name: "Welcome / Onboarding", color: "bg-purple-500", gradient: "from-purple-500 to-purple-700" },
     { id: "event", name: "Event Invite", color: "bg-orange-500", gradient: "from-orange-500 to-orange-700" },
@@ -27,15 +29,29 @@ export default function ShoutOutPage() {
     const [formData, setFormData] = useState({
         title: "",
         message: "",
-        audienceType: "department" as "department" | "project",
+        audienceType: "individual" as "individual" | "team",
         audienceName: "",
         category: "announcement",
-        image: null as File | null
+        image: null as File | null,
+        recipients: [] as GraphUser[]
     });
     
     const [previewUrl, setPreviewUrl] = useState<string | null>(null);
     const [isGenerating, setIsGenerating] = useState(false);
     const [showSuccess, setShowSuccess] = useState(false);
+    
+    // Sync recipients to audienceName
+    useEffect(() => {
+        if (formData.recipients.length > 0) {
+             // For team/individual, we use the selected names
+             const names = formData.recipients.map(u => u.displayName).join(", ");
+             setFormData(prev => ({ ...prev, audienceName: names }));
+        } else {
+             // Clear if empty? Or keep manual edit?
+             // Since RecipientSelector controls this now, clearing is safer.
+             setFormData(prev => ({ ...prev, audienceName: "" }));
+        }
+    }, [formData.recipients]);
 
     // Live Preview Effect
     useEffect(() => {
@@ -62,7 +78,7 @@ export default function ShoutOutPage() {
             category: formData.category as any,
             title: formData.title || "Headline Here",
             message: formData.message || "Your main message will appear here.",
-            audience: formData.audienceName || "Team Name",
+            audience: formData.recipients.length > 0 ? formData.audienceName : (formData.audienceName || "Organization"), 
             creatorName: user?.name || "Your Name",
             image: formData.image
         };
@@ -108,7 +124,7 @@ export default function ShoutOutPage() {
             // Save to Backend
             const payload = {
                 type: "SHOUT_OUT",
-                recipients: [], // No specific users, it's public
+                recipients: formData.recipients.map(r => r.displayName), // Store explicit names
                 imageBlob: base64, 
                 metadata: {
                     title: formData.title,
@@ -174,11 +190,11 @@ export default function ShoutOutPage() {
                                 />
                             </div>
 
-                            <ShoutOutRecipientSelector 
+                            <RecipientSelector 
                                 type={formData.audienceType}
                                 onTypeChange={(val) => handleInputChange("audienceType", val)}
-                                entityName={formData.audienceName}
-                                onEntityNameChange={(val) => handleInputChange("audienceName", val)}
+                                selectedRecipients={formData.recipients}
+                                onRecipientsChange={(val) => handleInputChange("recipients", val)}
                             />
 
                             <div>

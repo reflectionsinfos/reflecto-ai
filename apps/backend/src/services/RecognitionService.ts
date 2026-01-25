@@ -39,4 +39,11 @@ export class RecognitionService {
   static async getSentByUser(userId: string) {
     return db.select().from(recognitionEvents).where(eq(recognitionEvents.senderId, userId));
   }
+
+  /**
+   * Get all recognition events (Admin/Global View)
+   */
+  static async getAllEvents() {
+    return db.select().from(recognitionEvents);
+  }
 }

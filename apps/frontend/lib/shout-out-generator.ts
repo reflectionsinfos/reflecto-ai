@@ -130,6 +130,7 @@ function getGradientColors(gradientClass: string) {
     if (gradientClass.includes("green")) return { start: "#22c55e", end: "#15803d" };
     if (gradientClass.includes("purple")) return { start: "#a855f7", end: "#7e22ce" };
     if (gradientClass.includes("red")) return { start: "#ef4444", end: "#b91c1c" };
+    if (gradientClass.includes("teal")) return { start: "#14b8a6", end: "#0f766e" };
     return { start: "#ec4899", end: "#be185d" }; // Pink default
 }
 
