@@ -9,13 +9,18 @@ import {
   Search,
   Image as ImageIcon,
   PartyPopper,
-  Briefcase
+  Briefcase,
+  Trophy
 } from "lucide-react"
 
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { useAuth } from "@/hooks/use-auth"
 
 export default function HubPage() {
+  const { user } = useAuth()
+  const isAdmin = user?.role === 'admin'
+
   const creativeApps = [
     {
       name: "Kudos Cards",
@@ -42,11 +47,12 @@ export default function HubPage() {
     },
     {
       name: "Spot Awards",
-      description: "Nominate colleagues for monetary awards.",
-      icon: PartyPopper,
-      href: "#",
-      color: "bg-blue-500",
-      comingSoon: true,
+      description: "Create professional award posters.",
+      icon: Trophy,
+      href: "/dashboard/spot-awards",
+      color: "bg-amber-500",
+      comingSoon: !isAdmin,
+      badge: isAdmin ? "Admin Only" : undefined
     },
     {
         name: "Business Card",
@@ -104,9 +110,18 @@ export default function HubPage() {
                     <div className={`p-3 rounded-xl ${app.color} shadow-md`}>
                       <app.icon className="w-6 h-6 text-white" />
                     </div>
+                    {/* @ts-ignore */}
                     {app.stats && !app.comingSoon && (
                       <Badge variant="secondary" className="font-normal">
+                         {/* @ts-ignore */}
                         {app.stats}
+                      </Badge>
+                    )}
+                    {/* @ts-ignore */}
+                    {app.badge && !app.comingSoon && (
+                      <Badge variant="secondary" className="font-normal border-amber-500 text-amber-500 bg-amber-50">
+                         {/* @ts-ignore */}
+                        {app.badge}
                       </Badge>
                     )}
                     {app.comingSoon && (

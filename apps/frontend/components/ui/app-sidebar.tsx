@@ -13,18 +13,21 @@ import {
   Settings,
   Image as ImageIcon,
   PartyPopper,
-  Briefcase
+  Briefcase,
+  Trophy
 } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
+import { useAuth } from "@/hooks/use-auth"
 
 interface SidebarProps extends React.HTMLAttributes<HTMLDivElement> {}
 
 export function AppSidebar({ className }: SidebarProps) {
   const pathname = usePathname()
+  const { user } = useAuth()
 
   const apps = [
     {
@@ -45,6 +48,12 @@ export function AppSidebar({ className }: SidebarProps) {
       href: "/dashboard/shout-out",
       color: "text-orange-500",
     },
+    ...(user?.role === 'admin' ? [{
+      name: "Spot Awards",
+      icon: Trophy,
+      href: "/dashboard/spot-awards",
+      color: "text-amber-500",
+    }] : []),
     {
       name: "My Posters",
       icon: ImageIcon,

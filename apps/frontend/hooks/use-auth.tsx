@@ -22,21 +22,53 @@ export function useAuth() {
     if (inProgress === "none" && accounts.length > 0) {
       const account = accounts[0];
       
-      // Construct user from token claims
-      const u: User = {
-          id: account.localAccountId,
-          name: account.name || "User",
-          email: account.username,
-          role: "user", // Default, effectively managed by backend via token
-      };
-      
-      setUser(u);
-      setIsLoading(false);
-      
       // Ensure active account is set
       if (!instance.getActiveAccount()) {
           instance.setActiveAccount(account);
       }
+      
+      // Fetch user role from backend
+      const fetchUserRole = async () => {
+        try {
+          const tokenResponse = await instance.acquireTokenSilent({
+            ...loginRequest,
+            account: account
+          });
+          
+          const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/me`, {
+            headers: {
+              'Authorization': `Bearer ${tokenResponse.accessToken}`
+            }
+          });
+          
+          if (response.ok) {
+            const userData = await response.json();
+            setUser(userData);
+          } else {
+            // Fallback to basic user if API call fails
+            setUser({
+              id: account.localAccountId,
+              name: account.name || "User",
+              email: account.username,
+              role: "user"
+            });
+          }
+        } catch (err) {
+          console.error("Failed to fetch user role", err);
+          // Fallback to basic user
+          setUser({
+            id: account.localAccountId,
+            name: account.name || "User",
+            email: account.username,
+            role: "user"
+          });
+        } finally {
+          setIsLoading(false);
+        }
+      };
+
+      
+      fetchUserRole();
     } else if (inProgress === "none" && accounts.length === 0) {
         setUser(null);
         setIsLoading(false);
