@@ -1,4 +1,4 @@
-interface KudosCardData {
+export interface KudosCardData {
   template: {
     id: string
     name: string
@@ -790,7 +790,7 @@ async function drawTeamPhotos(
     ctx.restore(); // Restore context to remove clipping
 }
 
-async function drawImageCover(ctx: CanvasRenderingContext2D, img: HTMLImageElement, x: number, y: number, w: number, h: number) {
+export async function drawImageCover(ctx: CanvasRenderingContext2D, img: HTMLImageElement, x: number, y: number, w: number, h: number) {
     ctx.save();
     ctx.beginPath();
     ctx.rect(x, y, w, h);
