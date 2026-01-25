@@ -32,6 +32,7 @@ export default function LearningPage() {
   const [loading, setLoading] = useState(true)
   const [profile, setProfile] = useState<any>(null)
   const [stats, setStats] = useState<any>(null)
+  const [recentLessons, setRecentLessons] = useState<any[]>([])
   
   // Onboarding form state
   const [formData, setFormData] = useState({
@@ -46,6 +47,7 @@ export default function LearningPage() {
   useEffect(() => {
     loadProfile()
     loadStats()
+    loadRecentLessons()
   }, [])
 
   const loadProfile = async () => {
@@ -68,6 +70,15 @@ export default function LearningPage() {
       setStats(data)
     } catch (error) {
       console.error("Failed to load stats:", error)
+    }
+  }
+
+  const loadRecentLessons = async () => {
+    try {
+      const data = await apiClient.get("/learning/recent-lessons")
+      setRecentLessons(data as any[])
+    } catch (error) {
+      console.error("Failed to load recent lessons:", error)
     }
   }
 
@@ -467,6 +478,55 @@ export default function LearningPage() {
           </Button>
         </CardContent>
       </Card>
+
+      {/* Recent Lessons */}
+      {recentLessons.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <BookOpen className="w-5 h-5 text-purple-500" />
+              Recent Lessons
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {recentLessons.map((lesson: any) => (
+                <div 
+                  key={lesson.progress.id} 
+                  className="flex items-center justify-between p-4 border rounded-lg hover:bg-accent transition-colors"
+                >
+                  <div className="flex-1">
+                    <h4 className="font-semibold">{lesson.content?.topic || "Lesson"}</h4>
+                    <div className="flex gap-2 mt-1">
+                      <Badge variant="outline" className="text-xs">
+                        {lesson.content?.techStack}
+                      </Badge>
+                      <Badge variant="secondary" className="text-xs">
+                        {lesson.content?.difficulty}
+                      </Badge>
+                      {lesson.progress.completedAt && (
+                        <Badge className="text-xs bg-green-500">
+                          ✓ Completed
+                        </Badge>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Delivered {new Date(lesson.progress.deliveredAt).toLocaleDateString()}
+                    </p>
+                  </div>
+                  <Button 
+                    variant={lesson.progress.completedAt ? "outline" : "default"}
+                    size="sm"
+                    onClick={() => window.location.href = `/dashboard/learning/lesson?id=${lesson.progress.id}`}
+                  >
+                    {lesson.progress.completedAt ? "Review" : "Start Lesson"}
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   )
 }

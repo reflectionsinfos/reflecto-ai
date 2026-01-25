@@ -34,7 +34,7 @@ export class AILearningService {
    */
   static async generateLesson(request: LearningContentRequest): Promise<GeneratedLesson> {
     const model = genAI.getGenerativeModel({ 
-      model: "gemini-1.0-pro", // Stable v1 model, universally available
+      model: "gemini-2.0-flash", // Latest Gemini 2.0 model
       generationConfig: {
         temperature: 0.7,
       }
@@ -115,7 +115,7 @@ Return ONLY valid JSON with this exact structure (no markdown, no code blocks):
     
     // Generate personalized feedback using Gemini
     const model = genAI.getGenerativeModel({ 
-      model: "gemini-1.0-pro",
+      model: "gemini-2.0-flash",
       generationConfig: {
         temperature: 0.8,
         maxOutputTokens: 150,
@@ -155,7 +155,7 @@ Provide encouraging, constructive feedback in 2-3 sentences. Be specific about w
     userGoals?: string
   ): Promise<string> {
     const model = genAI.getGenerativeModel({ 
-      model: "gemini-1.0-pro",
+      model: "gemini-2.0-flash",
       generationConfig: {
         temperature: 0.7,
         maxOutputTokens: 30,

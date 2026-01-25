@@ -111,4 +111,25 @@ router.get("/stats", authenticate(), async (req: any, res) => {
   }
 });
 
+// Get recent lessons
+router.get("/recent-lessons", authenticate(), async (req: any, res) => {
+  try {
+    const userEmail = req.user?.email || req.user?.preferred_username;
+    const userName = req.user?.name;
+    
+    const { RecognitionService } = await import("../services/RecognitionService");
+    const userId = await RecognitionService.resolveUser(userEmail, userName);
+    
+    if (!userId) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    const lessons = await LearningService.getRecentLessons(userId, 5);
+    res.json(lessons);
+  } catch (error) {
+    console.error("Error fetching recent lessons:", error);
+    res.status(500).json({ error: "Failed to fetch recent lessons" });
+  }
+});
+
 export default router;

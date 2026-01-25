@@ -260,4 +260,34 @@ export class LearningService {
       completedCount: completedLessons.length,
     };
   }
+
+  /**
+   * Get recent lessons for a user
+   */
+  static async getRecentLessons(userId: string, limit: number = 5) {
+    const { sql } = await import("drizzle-orm");
+    
+    const recentProgress = await db
+      .select()
+      .from(userLearningProgress)
+      .where(eq(userLearningProgress.userId, userId))
+      .orderBy(desc(userLearningProgress.deliveredAt))
+      .limit(limit);
+
+    // Fetch corresponding content for each progress record
+    const lessonsWithContent = await Promise.all(
+      recentProgress.map(async (progress) => {
+        if (!progress.contentId) return { progress, content: null };
+        
+        const [content] = await db
+          .select()
+          .from(learningContent)
+          .where(eq(learningContent.id, progress.contentId));
+        
+        return { progress, content };
+      })
+    );
+
+    return lessonsWithContent;
+  }
 }
