@@ -16,6 +16,7 @@ import { downloadImage } from "@/lib/image-generator"
 import { apiClient } from "@/lib/api-client"
 import { RecipientSelector } from "@/components/recipient-selector"
 import type { GraphUser } from "@/lib/graph-service"
+import { AiMessageAssistant } from "@/components/ai-message-assistant"
 
 // Helper to convert Blob to Base64
 const blobToBase64 = (blob: Blob): Promise<string> => {
@@ -304,6 +305,15 @@ export default function SpotAwardsPage() {
                     <Button variant="outline" size="sm" onClick={() => setMessage("")}>
                         <RotateCcw className="w-3 h-3 mr-2" /> Reset
                     </Button>
+                    <div className="ml-auto">
+                        <AiMessageAssistant 
+                            context="Spot Award"
+                            recipientName={recipientName}
+                            category={category}
+                            currentValue={message}
+                            onMessageGenerated={setMessage}
+                        />
+                    </div>
                 </div>
 
                 <Textarea 

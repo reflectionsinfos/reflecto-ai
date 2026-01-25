@@ -9,6 +9,7 @@ import tenantRoutes from "./routes/tenant.routes";
 import userRoutes from "./routes/user.routes";
 import recognitionRoutes from "./routes/recognition.routes";
 import learningRoutes from "./routes/learning.routes";
+import aiRoutes from "./routes/ai.routes";
 
 // Swagger
 import swaggerUi from "swagger-ui-express";
@@ -50,6 +51,7 @@ app.use("/api/tenants", tenantRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/recognition", recognitionRoutes);
 app.use("/api/learning", learningRoutes);
+app.use("/api/ai", aiRoutes);
 
 // Global Error Handler
 app.use(errorHandler);

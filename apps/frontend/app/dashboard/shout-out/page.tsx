@@ -14,6 +14,7 @@ import { RecipientSelector } from "@/components/recipient-selector"
 import type { GraphUser } from "@/lib/graph-service"
 import { generateShoutOutToCanvas, ShoutOutCardData } from "@/lib/shout-out-generator"
 import { apiClient } from "@/lib/api-client"
+import { AiMessageAssistant } from "@/components/ai-message-assistant"
 
 const CATEGORIES = [
     { id: "announcement", name: "Announcement", color: "bg-blue-500", gradient: "from-blue-500 to-blue-700" },
@@ -198,7 +199,16 @@ export default function ShoutOutPage() {
                             />
 
                             <div>
+                            <div className="flex items-center justify-between">
                                 <Label>Message Body</Label>
+                                <AiMessageAssistant 
+                                    context="Shout Out"
+                                    recipientName={formData.audienceName}
+                                    category={CATEGORIES.find(c => c.id === formData.category)?.name}
+                                    currentValue={formData.message}
+                                    onMessageGenerated={(msg) => handleInputChange("message", msg)}
+                                />
+                            </div>
                                 <Textarea 
                                     placeholder="Write your announcement details here..."
                                     className="resize-none h-32"

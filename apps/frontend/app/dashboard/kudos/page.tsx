@@ -30,6 +30,7 @@ import { cardStorage, type StoredCard } from "@/lib/card-storage"
 
 import { RecipientSelector } from "@/components/recipient-selector"
 import type { GraphUser } from "@/lib/graph-service"
+import { AiMessageAssistant } from "@/components/ai-message-assistant"
 
 const templates = [
   {
@@ -638,18 +639,28 @@ export default function DashboardPage() {
                     </Label>
 
                     <div className="mb-3">
-                      <Select onValueChange={handlePreGeneratedMessage}>
-                        <SelectTrigger className="w-full bg-input border-border">
-                          <SelectValue placeholder="Choose a pre-generated message or write your own" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {currentMessages.map((message, index) => (
-                            <SelectItem key={index} value={message} className="text-sm">
-                              {message.length > 60 ? `${message.substring(0, 60)}...` : message}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                        <Select onValueChange={handlePreGeneratedMessage}>
+                            <SelectTrigger className="w-full bg-input border-border">
+                            <SelectValue placeholder="Choose a pre-generated message or write your own" />
+                            </SelectTrigger>
+                            <SelectContent>
+                            {currentMessages.map((message, index) => (
+                                <SelectItem key={index} value={message} className="text-sm">
+                                {message.length > 60 ? `${message.substring(0, 60)}...` : message}
+                                </SelectItem>
+                            ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+
+                    <div className="flex justify-end mb-2">
+                         <AiMessageAssistant 
+                             context="Kudos"
+                             recipientName={formData.recipientName}
+                             category={selectedTemplate.name}
+                             currentValue={formData.message}
+                             onMessageGenerated={(msg) => handleInputChange("message", msg)}
+                         />
                     </div>
 
                     <Textarea
