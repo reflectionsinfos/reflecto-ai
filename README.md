@@ -1,6 +1,6 @@
 # ReflectoAI
 
-A futuristic, AI-powered HR recognition platform for generating and managing Kudos cards.
+A futuristic, AI-powered HR recognition platform for generating and managing Kudos cards. Now featuring Google Gemini integration for smart message drafting.
 
 ## Project Structure (Monorepo)
 

@@ -35,6 +35,11 @@ ReflectoAI is a web-based "Kudos Card" generator and management platform. It all
 4.  **Admin/Analytics**:
     - Backend endpoints provide statistics on template usage and total cards.
 
+5.  **AI Assistance**:
+    - **Message Generation**: Uses Google Gemini API (`gemini-2.0-flash`) to help users write Kudos, Shout Out, and Spot Award messages.
+    - **Features**: Generates context-aware, polished messages based on rough drafts or key words.
+    - **Integration**: `AiMessageAssistant` component available in all recognition creation flows.
+
 ## Project Structure
 
 - **`apps/frontend`**:
@@ -56,7 +61,7 @@ ReflectoAI is a web-based "Kudos Card" generator and management platform. It all
 ## Configuration & Environment
 
 - **Frontend**: Requires `NEXT_PUBLIC_AZURE_CLIENT_ID`, `NEXT_PUBLIC_AZURE_TENANT_ID`, `NEXT_PUBLIC_API_URL`.
-- **Backend**: Requires `DATABASE_URL`, `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`.
+- **Backend**: Requires `DATABASE_URL`, `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `GEMINI_API_KEY`.
 
 ## Deployment
 
