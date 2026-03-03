@@ -35,3 +35,12 @@ prod-vm-details.md
 
 # Worktrees
 worktrees/
+
+# Build artifacts
+apps/backend/dist/
+apps/frontend/dist/
+
+# Turborepo cache
+.turbo/
+apps/backend/.turbo/
+apps/frontend/.turbo/
