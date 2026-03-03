@@ -4,7 +4,7 @@ This guide details the steps to deploy the **Reflecto AI** application to the re
 
 ## Prerequisites
 
-Ensure the following are installed on `192.168.117.114`:
+Ensure the following are installed on `192.168.117.144`:
 
 - **Docker**: Container runtime.
   _Rocky Linux 9 Installation:_

@@ -9,6 +9,23 @@ exports.userController = {
         const user = await user_service_1.userService.createUser({ email, name, role, tenantId });
         res.json(user);
     }),
+    getCurrentUser: (0, errorHandler_1.asyncHandler)(async (req, res) => {
+        const email = req.user?.email;
+        if (!email) {
+            return res.status(401).json({ error: 'Unauthorized' });
+        }
+        const user = await user_service_1.userService.getUserByEmail(email);
+        if (!user) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+        res.json({
+            id: user.id,
+            email: user.email,
+            name: user.name,
+            role: user.role,
+            tenantId: user.tenantId
+        });
+    }),
     getUsers: (0, errorHandler_1.asyncHandler)(async (req, res) => {
         const { email } = req.query;
         if (email && typeof email === 'string') {

@@ -35,6 +35,23 @@ const router = (0, express_1.Router)();
 router.post('/', (0, auth_1.authenticate)(), user_controller_1.userController.createUser);
 /**
  * @swagger
+ * /api/users/me:
+ *   get:
+ *     summary: Get current authenticated user
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Current user profile
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/User'
+ */
+router.get('/me', (0, auth_1.authenticate)(), user_controller_1.userController.getCurrentUser);
+/**
+ * @swagger
  * /api/users:
  *   get:
  *     summary: Get users

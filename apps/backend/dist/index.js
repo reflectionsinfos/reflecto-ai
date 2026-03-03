@@ -11,7 +11,9 @@ const errorHandler_1 = require("./middleware/errorHandler");
 // Import Routes
 const tenant_routes_1 = __importDefault(require("./routes/tenant.routes"));
 const user_routes_1 = __importDefault(require("./routes/user.routes"));
-const card_routes_1 = __importDefault(require("./routes/card.routes"));
+const recognition_routes_1 = __importDefault(require("./routes/recognition.routes"));
+const learning_routes_1 = __importDefault(require("./routes/learning.routes"));
+const ai_routes_1 = __importDefault(require("./routes/ai.routes"));
 // Swagger
 const swagger_ui_express_1 = __importDefault(require("swagger-ui-express"));
 const swagger_1 = require("./config/swagger");
@@ -36,7 +38,9 @@ app.use("/api-docs", swagger_ui_express_1.default.serve, swagger_ui_express_1.de
 // Mount Module Routes
 app.use("/api/tenants", tenant_routes_1.default);
 app.use("/api/users", user_routes_1.default);
-app.use("/api/cards", card_routes_1.default);
+app.use("/api/recognition", recognition_routes_1.default);
+app.use("/api/learning", learning_routes_1.default);
+app.use("/api/ai", ai_routes_1.default);
 // Global Error Handler
 app.use(errorHandler_1.errorHandler);
 // Start Server
