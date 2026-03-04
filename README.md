@@ -8,6 +8,7 @@ An AI-powered HR recognition and talent development platform. Built as a monorep
 - **Kudos Cards** — peer-to-peer recognition with AI-generated message drafts (Gemini)
 - **Shout Outs** — team-wide public appreciation with admin review view
 - **Spot Awards** — admin-issued awards with recipient selector and database persistence
+- **My Cards** — view and manage your received/downloaded recognition cards
 
 ### Talent Intelligence
 - **Tech Growth Plan** — employee learning paths with manager approval workflow
@@ -27,31 +28,53 @@ reflecto-ai/
 ├── apps/
 │   ├── frontend/          # Next.js 15 Web Application
 │   │   ├── app/
-│   │   │   └── dashboard/
-│   │   │       ├── kudos/
-│   │   │       ├── shout-out/
-│   │   │       ├── spot-awards/
-│   │   │       ├── learning/
-│   │   │       └── analytics/
-│   │   └── components/
-│   └── backend/           # Express.js API Service
-│       └── src/
-│           ├── routes/    # ai, recognition, learning, user, tenant
-│           └── services/  # AIAssistantService, AILearningService,
-│                          # RecognitionService, LearningService
-└── packages/              # Shared libraries
+│   │   │   ├── dashboard/
+│   │   │   │   ├── kudos/
+│   │   │   │   ├── shout-out/
+│   │   │   │   ├── spot-awards/
+│   │   │   │   ├── learning/
+│   │   │   │   ├── analytics/
+│   │   │   │   └── my-cards/
+│   │   │   ├── download/
+│   │   │   └── api/
+│   │   ├── components/
+│   │   │   ├── ui/
+│   │   │   └── shout-out/
+│   │   ├── hooks/
+│   │   ├── lib/
+│   │   ├── db/              # Drizzle ORM config & schema
+│   │   └── docs/
+│   │
+│   ├── backend/           # Express.js API Service
+│   │   ├── src/
+│   │   │   ├── routes/    # ai, recognition, learning, user, tenant
+│   │   │   ├── services/  # AIAssistantService, AILearningService,
+│   │   │   │              # RecognitionService, LearningService,
+│   │   │   │              # tenant.service, user.service
+│   │   │   ├── controllers/
+│   │   │   ├── middleware/
+│   │   │   ├── config/
+│   │   │   └── db/
+│   │   ├── drizzle/       # Database migrations
+│   │   ├── scripts/
+│   │   └── postman-collection/
+│   │
+│   └── infra/             # Infrastructure configs
+│       └── *.conf         # Nginx server configs (prod/staging)
+│
+└── (no packages/ - shared libs not yet extracted)
 ```
 
 ## Tech Stack
 
 | Layer | Technology |
 |---|---|
-| Frontend | Next.js 15, TypeScript, Tailwind CSS, Radix UI / Shadcn |
+| Frontend | Next.js 15 (App Router), TypeScript, Tailwind CSS, Radix UI / Shadcn |
 | Backend | Express.js, TypeScript |
-| Database | PostgreSQL via Drizzle ORM |
+| Database | PostgreSQL via Drizzle ORM (with migrations) |
 | AI | Google Gemini (message generation & learning assistant) |
 | Auth | Azure Active Directory (MSAL client, Passport-Azure-AD server) |
-| Deployment | Docker Compose, Nginx |
+| Deployment | Docker Compose, Nginx reverse proxy |
 
 ## Getting Started
 
@@ -110,9 +133,88 @@ npm run seed
 
 For full production deployment instructions, see [deployment.md](./deployment.md).
 
+### Prerequisites
+
+- [Docker Desktop for Windows](https://www.docker.com/products/docker-desktop/) installed and running
+- WSL 2 backend enabled (recommended for performance)
+
+### Local Docker (Windows Docker Desktop)
+
+**Start all services (build + run in background):**
 ```bash
-docker-compose up -d --build
+docker compose up -d --build
 ```
+
+**Start only specific services:**
+```bash
+# Backend + database only
+docker compose up -d --build backend postgres
+
+# Frontend only (assumes backend is already running)
+docker compose up -d --build frontend
+```
+
+**View running containers:**
+```bash
+docker compose ps
+```
+
+**View logs:**
+```bash
+# All services
+docker compose logs -f
+
+# Specific service
+docker compose logs -f backend
+docker compose logs -f frontend
+docker compose logs -f postgres
+```
+
+**Stop all services:**
+```bash
+docker compose down
+```
+
+**Stop and remove volumes (wipes database data):**
+```bash
+docker compose down -v
+```
+
+**Rebuild a single service without cache:**
+```bash
+docker compose build --no-cache backend
+docker compose build --no-cache frontend
+```
+
+**Restart a single service:**
+```bash
+docker compose restart backend
+```
+
+**Open a shell inside a running container:**
+```bash
+docker exec -it reflecto-backend sh
+docker exec -it reflecto-frontend sh
+docker exec -it reflecto-postgres psql -U reflecto_user -d reflecto_db
+```
+
+### Production Compose (no bundled Postgres)
+
+Uses `docker-compose.prod.yml` — connects to an external PostgreSQL host via `host.docker.internal`:
+
+```bash
+docker compose -f docker-compose.prod.yml up -d --build
+docker compose -f docker-compose.prod.yml down
+docker compose -f docker-compose.prod.yml logs -f
+```
+
+### Service URLs (local)
+
+| Service | URL |
+|---|---|
+| Frontend | http://localhost:3000 |
+| Backend API | http://localhost:4000 |
+| PostgreSQL | localhost:5432 |
 
 ## API Routes
 
