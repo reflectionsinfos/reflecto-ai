@@ -134,42 +134,7 @@ export default function HubPage() {
         </div>
       </div>
 
-      <div>
-        <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-            <span className="w-1 h-6 bg-purple-500 rounded-full"></span>
-            Growth & Intelligence
-        </h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {growthApps.map((app) => (
-            <Link 
-                key={app.name} 
-                href={app.comingSoon ? "#" : app.href}
-                className={app.comingSoon ? "cursor-not-allowed" : ""}
-            >
-              <Card className={`h-full hover:shadow-lg transition-all duration-200 border-border group ${app.comingSoon ? "opacity-60" : "hover:-translate-y-1"}`}>
-                <CardContent className="p-6">
-                  <div className="flex justify-between items-start mb-4">
-                     <div className={`p-3 rounded-xl ${app.color} shadow-md`}>
-                      <app.icon className="w-6 h-6 text-white" />
-                    </div>
-                    {app.comingSoon && (
-                        <Badge variant="outline" className="text-muted-foreground">
-                            Coming Soon
-                        </Badge>
-                    )}
-                  </div>
-                  <h3 className="font-bold text-lg mb-1 group-hover:text-primary transition-colors">
-                    {app.name}
-                  </h3>
-                  <p className="text-sm text-muted-foreground">
-                    {app.description}
-                  </p>
-                </CardContent>
-              </Card>
-            </Link>
-          ))}
-        </div>
-      </div>
+      {/* Growth & Intelligence section hidden — Talent Search planned for future release */}
     </div>
   )
 }

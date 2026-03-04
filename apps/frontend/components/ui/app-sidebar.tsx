@@ -95,36 +95,7 @@ export function AppSidebar({ className }: SidebarProps) {
           </div>
         </div>
         
-        <Separator className="my-4 mx-4 w-auto" />
-        
-        <div className="px-3 py-2">
-          <h2 className="mb-2 px-4 text-xs font-semibold tracking-tight text-muted-foreground uppercase">
-            Intelligence
-          </h2>
-          <div className="space-y-1">
-            {intelligence.map((item) => (
-              <Button
-                key={item.name}
-                variant={"ghost"}
-                className={cn("w-full justify-start font-normal", item.comingSoon && "opacity-60 cursor-not-allowed")}
-                asChild={!item.comingSoon}
-                disabled={item.comingSoon}
-              >
-                {item.comingSoon ? (
-                  <span className="flex w-full">
-                    <item.icon className={cn("mr-2 h-4 w-4", item.color)} />
-                    {item.name}
-                  </span>
-                ) : (
-                  <Link href={item.href}>
-                    <item.icon className={cn("mr-2 h-4 w-4", item.color)} />
-                    {item.name}
-                  </Link>
-                )}
-              </Button>
-            ))}
-          </div>
-        </div>
+        {/* Intelligence section hidden — Talent Search planned for future release */}
       </ScrollArea>
     </div>
   )

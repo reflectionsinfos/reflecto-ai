@@ -475,3 +475,17 @@ Before enabling custom template feature:
 - [ ] Advanced image editing (crop, filters, overlays)
 - [ ] Template usage analytics
 - [ ] Custom template versioning and rollback
+
+### Intelligence & Talent Features (Planned)
+The **Intelligence** section and **Talent Search** are currently hidden from the sidebar and dashboard hub. They are planned for a future release.
+
+**Talent Search**
+- Natural language search to find employees by skills, role, department, or expertise
+- Powered by Azure AD directory + AI semantic search
+- Route: `/dashboard/talent-search`
+- Backend endpoint: not yet built
+
+To re-enable when ready:
+1. Remove the hidden comment in `apps/frontend/components/ui/app-sidebar.tsx` and restore the Intelligence section
+2. Remove the hidden comment in `apps/frontend/app/dashboard/page.tsx` and restore the Growth & Intelligence section
+3. Build the `/dashboard/talent-search` page and corresponding backend API
