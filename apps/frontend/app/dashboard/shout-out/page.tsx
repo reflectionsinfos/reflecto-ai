@@ -12,7 +12,7 @@ import { useToast } from "@/hooks/use-toast"
 import { useAuth } from "@/hooks/use-auth"
 import { RecipientSelector } from "@/components/recipient-selector"
 import type { GraphUser } from "@/lib/graph-service"
-import { generateShoutOutToCanvas, ShoutOutCardData } from "@/lib/shout-out-generator"
+import { generateShoutOutToCanvas, ShoutOutCardData, downloadImage } from "@/lib/shout-out-generator"
 import { apiClient } from "@/lib/api-client"
 import { AiMessageAssistant } from "@/components/ai-message-assistant"
 
@@ -118,15 +118,15 @@ export default function ShoutOutPage() {
                 image: formData.image
             };
             await generateShoutOutToCanvas(canvas, data);
-            
-            // Convert to Base64
+
+            // Convert to Base64 for backend storage
             const base64 = canvas.toDataURL("image/jpeg", 0.8);
 
-            // Save to Backend
+            // Save to Backend (for card history)
             const payload = {
                 type: "SHOUT_OUT",
-                recipients: formData.recipients.map(r => r.displayName), // Store explicit names
-                imageBlob: base64, 
+                recipients: formData.recipients.map(r => r.displayName),
+                imageBlob: base64,
                 metadata: {
                     title: formData.title,
                     message: formData.message,
@@ -138,13 +138,20 @@ export default function ShoutOutPage() {
             };
 
             await apiClient.post("/recognition", payload);
-            
+
+            // Download the card
+            canvas.toBlob((blob) => {
+                if (blob) {
+                    downloadImage(blob, `shout-out-${formData.title.replace(/\s+/g, "-").toLowerCase()}.png`);
+                }
+            }, "image/png", 1.0);
+
             setShowSuccess(true);
-            toast({ title: "Published!", description: "Shout Out has been posted." });
+            toast({ title: "Generated!", description: "Shout Out card downloaded and saved." });
 
         } catch (e) {
             console.error(e);
-            toast({ title: "Error", description: "Failed to publish.", variant: "destructive" });
+            toast({ title: "Error", description: "Failed to generate card.", variant: "destructive" });
         } finally {
             setIsGenerating(false);
         }
@@ -245,7 +252,7 @@ export default function ShoutOutPage() {
 
                             <div className="mt-6 flex gap-3">
                                 <Button className="w-full" onClick={handleSave} disabled={isGenerating}>
-                                    {isGenerating ? "Publishing..." : "Publish Shout Out"}
+                                    {isGenerating ? "Generating..." : "Generate"}
                                 </Button>
                             </div>
                         </CardContent>
@@ -260,16 +267,16 @@ export default function ShoutOutPage() {
                         <div className="flex justify-center text-green-500 mb-4">
                             <CheckCircle className="w-12 h-12" />
                         </div>
-                        <h3 className="text-2xl font-bold mb-2">Shout Out Published!</h3>
+                        <h3 className="text-2xl font-bold mb-2">Shout Out Generated!</h3>
                         <p className="text-muted-foreground mb-6">
-                            Your announcement is now live on the dashboard.
+                            Your card has been downloaded and saved to your card history.
                         </p>
                         <div className="flex gap-2 justify-center">
                             <Button variant="outline" onClick={() => {
                                 setShowSuccess(false);
                                 setFormData({ ...formData, title: "", message: "" });
                             }}>Create Another</Button>
-                            <Button onClick={() => window.location.href = "/dashboard"}>Go to Feed</Button>
+                            <Button onClick={() => window.location.href = "/dashboard/my-cards"}>Go to Card History</Button>
                         </div>
                     </div>
                 </div>
