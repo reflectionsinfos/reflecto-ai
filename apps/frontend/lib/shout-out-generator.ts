@@ -58,40 +58,40 @@ export async function generateShoutOutToCanvas(canvas: HTMLCanvasElement, data: 
 
     // Category Badge
     ctx.fillStyle = colors.start;
-    ctx.font = `bold 24px ${fontBase}`;
+    ctx.font = `600 20px ${fontBase}`;
     const categoryText = data.category.toUpperCase();
     const catMetrics = ctx.measureText(categoryText);
     const badgeW = catMetrics.width + 40;
-    const badgeH = 40;
+    const badgeH = 36;
     const badgeX = canvas.width / 2 - badgeW / 2;
     const badgeY = margin + 50;
 
     ctx.beginPath();
-    ctx.roundRect(badgeX, badgeY, badgeW, badgeH, 20);
+    ctx.roundRect(badgeX, badgeY, badgeW, badgeH, 18);
     ctx.fill();
 
     ctx.fillStyle = "white";
     ctx.textAlign = "center";
-    ctx.fillText(categoryText, canvas.width / 2, badgeY + 28);
+    ctx.fillText(categoryText, canvas.width / 2, badgeY + 25);
 
     // Title
     ctx.fillStyle = "#111827";
-    ctx.font = `bold 64px ${fontBase}`;
-    // Wrap title if needed, but usually short
+    ctx.font = `600 52px ${fontBase}`;
     ctx.fillText(data.title, canvas.width / 2, badgeY + 100);
 
     // Message
-    ctx.fillStyle = "#374151";
-    ctx.font = `400 32px ${fontBase}`;
-    wrapTextCentered(ctx, data.message, canvas.width / 2, badgeY + 180, contentW - 100, 48);
+    ctx.fillStyle = "#4b5563";
+    ctx.font = `400 28px ${fontBase}`;
+    wrapTextCentered(ctx, data.message, canvas.width / 2, badgeY + 175, contentW - 100, 44);
 
     // Audience / Footer
-    ctx.fillStyle = "#6b7280";
-    ctx.font = `bold 24px ${fontBase}`;
+    ctx.fillStyle = "#9ca3af";
+    ctx.font = `500 20px ${fontBase}`;
     const bottomY = margin + contentH - 40;
-    ctx.fillText(`📢 FOR: ${data.audience.toUpperCase()}`, canvas.width / 2, bottomY - 30);
-    
-    ctx.font = `400 18px ${fontBase}`;
+    ctx.fillText(`📢 FOR: ${data.audience.toUpperCase()}`, canvas.width / 2, bottomY - 28);
+
+    ctx.font = `400 16px ${fontBase}`;
+    ctx.fillStyle = "#d1d5db";
     ctx.fillText(`Posted by ${data.creatorName} • ${new Date().toLocaleDateString()}`, canvas.width / 2, bottomY);
     
     // Optional Image (Logo or Icon)
