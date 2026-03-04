@@ -1,26 +1,10 @@
 "use client";
 
 import * as React from "react";
-import { Check, ChevronsUpDown, X, User as UserIcon, Users as UsersIcon, Loader2 } from "lucide-react";
+import { X, User as UserIcon, Users as UsersIcon, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-  CommandSeparator,
-} from "@/components/ui/command";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Badge } from "@/components/ui/badge";
 import { searchUsers, GraphUser } from "@/lib/graph-service";
 import { useAuth } from "@/hooks/use-auth";
 
@@ -39,74 +23,181 @@ export function RecipientSelector({
   selectedRecipients,
   onRecipientsChange,
   className,
-  error
+  error,
 }: RecipientSelectorProps) {
   const { isAuthenticated } = useAuth();
-  const [open, setOpen] = React.useState(false);
-  const [query, setQuery] = React.useState("");
-  const [searchResults, setSearchResults] = React.useState<GraphUser[]>([]);
+  const [inputValue, setInputValue] = React.useState("");
+  const [suggestions, setSuggestions] = React.useState<GraphUser[]>([]);
   const [loading, setLoading] = React.useState(false);
+  const [isFocused, setIsFocused] = React.useState(false);
+  const [activeIndex, setActiveIndex] = React.useState(-1);
+
+  const inputRef = React.useRef<HTMLInputElement>(null);
+  const containerRef = React.useRef<HTMLDivElement>(null);
+  // Ref so async paste handlers always see latest recipients
+  const recipientsRef = React.useRef(selectedRecipients);
+  recipientsRef.current = selectedRecipients;
 
   // Debounced search
   React.useEffect(() => {
     if (!isAuthenticated) return;
-    
+    const q = inputValue.trim();
+    if (q.length < 2) {
+      setSuggestions([]);
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
     const timer = setTimeout(async () => {
-      if (query.trim().length >= 3) {
-        setLoading(true);
-        const results = await searchUsers(query);
-        setSearchResults(results);
-        setLoading(false);
-      } else {
-        setSearchResults([]);
-      }
-    }, 400);
-
+      const results = await searchUsers(q);
+      setSuggestions(results);
+      setLoading(false);
+      setActiveIndex(-1);
+    }, 300);
     return () => clearTimeout(timer);
-  }, [query, isAuthenticated]);
+  }, [inputValue, isAuthenticated]);
 
-  const handleAddManual = () => {
-      const manualUser: GraphUser = {
-          id: `manual-${Date.now()}`,
-          displayName: query,
-          mail: "",
-          userPrincipalName: ""
-      };
-      if (type === "individual") {
-          onRecipientsChange([manualUser]);
-          setOpen(false);
-      } else {
-          onRecipientsChange([...selectedRecipients, manualUser]);
-          setQuery("");
+  // Close dropdown on outside click
+  React.useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setIsFocused(false);
       }
-      setSearchResults([]);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const makeManualUser = (token: string): GraphUser => {
+    const t = token.trim();
+    // Handle "Name <email@co.com>" format pasted from Outlook/email clients
+    const angleMatch = t.match(/^(.+?)\s*<([^>]+)>$/);
+    if (angleMatch) {
+      return {
+        id: `manual-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        displayName: angleMatch[1].trim(),
+        mail: angleMatch[2].trim(),
+        userPrincipalName: angleMatch[2].trim(),
+      };
+    }
+    const isEmail = t.includes("@");
+    return {
+      id: `manual-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      displayName: isEmail ? t.split("@")[0] : t,
+      mail: isEmail ? t : "",
+      userPrincipalName: isEmail ? t : "",
+    };
   };
 
-  const handleSelect = (user: GraphUser) => {
+  const addUser = React.useCallback((user: GraphUser) => {
     if (type === "individual") {
       onRecipientsChange([user]);
-      setOpen(false);
     } else {
-      // Team mode: Add if not exists
-      if (!selectedRecipients.find((u) => u.id === user.id)) {
-        onRecipientsChange([...selectedRecipients, user]);
+      const current = recipientsRef.current;
+      if (!current.find(u => u.id === user.id)) {
+        onRecipientsChange([...current, user]);
       }
-      // Keep open for multiple selection?
-      setQuery(""); 
+    }
+    setInputValue("");
+    setSuggestions([]);
+    setActiveIndex(-1);
+    setTimeout(() => inputRef.current?.focus(), 0);
+  }, [type, onRecipientsChange]);
+
+  const commitCurrent = React.useCallback(() => {
+    const q = inputValue.trim();
+    if (!q) return;
+    if (activeIndex >= 0 && suggestions[activeIndex]) {
+      addUser(suggestions[activeIndex]);
+    } else if (suggestions.length === 1) {
+      addUser(suggestions[0]);
+    } else {
+      const manual = makeManualUser(q);
+      const current = recipientsRef.current;
+      if (type === "individual") {
+        onRecipientsChange([manual]);
+      } else {
+        onRecipientsChange([...current, manual]);
+      }
+      setInputValue("");
+      setSuggestions([]);
+    }
+  }, [inputValue, activeIndex, suggestions, addUser, type, onRecipientsChange]);
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter" || e.key === "," || e.key === ";") {
+      if (inputValue.trim()) {
+        e.preventDefault();
+        commitCurrent();
+      }
+    } else if (e.key === "Backspace" && !inputValue && selectedRecipients.length > 0) {
+      const last = selectedRecipients[selectedRecipients.length - 1];
+      onRecipientsChange(selectedRecipients.filter(u => u.id !== last.id));
+    } else if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setActiveIndex(prev => Math.min(prev + 1, suggestions.length - 1));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setActiveIndex(prev => Math.max(prev - 1, -1));
+    } else if (e.key === "Escape") {
+      setSuggestions([]);
+      setActiveIndex(-1);
+      setIsFocused(false);
     }
   };
 
-  const handleRemove = (userId: string) => {
-    onRecipientsChange(selectedRecipients.filter((u) => u.id !== userId));
+  const handlePaste = async (e: React.ClipboardEvent<HTMLInputElement>) => {
+    const text = e.clipboardData.getData("text");
+    // Only intercept if it looks like multiple values
+    if (!/[,;\n\t]/.test(text)) return;
+
+    e.preventDefault();
+
+    const tokens = text
+      .split(/[,;\n\t]+/)
+      .map(t => t.trim())
+      .filter(Boolean);
+
+    if (tokens.length === 0) return;
+
+    if (type === "individual") {
+      const results = await searchUsers(tokens[0]);
+      const user = results.length > 0 ? results[0] : makeManualUser(tokens[0]);
+      onRecipientsChange([user]);
+      setInputValue("");
+      return;
+    }
+
+    // Team: resolve all tokens in parallel
+    const resolved = await Promise.all(
+      tokens.map(async (token) => {
+        const results = await searchUsers(token);
+        return results.length > 0 ? results[0] : makeManualUser(token);
+      })
+    );
+
+    const current = recipientsRef.current;
+    const newOnes = resolved.filter(r => !current.find(e => e.id === r.id || (e.mail && e.mail === r.mail)));
+    onRecipientsChange([...current, ...newOnes]);
+    setInputValue("");
   };
 
+  const canAddMore = type === "team" || selectedRecipients.length === 0;
+  const q = inputValue.trim();
+  const showDropdown = isFocused && canAddMore && q.length >= 2;
+
   return (
-    <div className={cn("space-y-4", className)}>
+    <div className={cn("space-y-3", className)}>
+      {/* Recipient Type */}
       <div className="space-y-2">
         <Label>Recipient Type</Label>
         <RadioGroup
           defaultValue={type}
-          onValueChange={(val) => onTypeChange(val as "individual" | "team")}
+          onValueChange={(val) => {
+            onTypeChange(val as "individual" | "team");
+            onRecipientsChange([]);
+            setInputValue("");
+          }}
           className="flex space-x-4"
         >
           <div className="flex items-center space-x-2">
@@ -124,111 +215,123 @@ export function RecipientSelector({
         </RadioGroup>
       </div>
 
-      <div className="space-y-2">
+      {/* Outlook-style token input */}
+      <div className="space-y-1.5">
         <Label>
           {type === "individual" ? "Select Recipient *" : "Select Team Members *"}
         </Label>
-        
-        <Popover open={open} onOpenChange={setOpen}>
-          <PopoverTrigger asChild>
-            <Button
-              variant="outline"
-              role="combobox"
-              aria-expanded={open}
-              className={cn(
-                "w-full justify-between bg-input border-border min-h-[40px] h-auto",
-                error && "border-destructive focus-visible:ring-destructive"
-              )}
-            >
-              {selectedRecipients.length > 0 ? (
-                 type === "individual" ? (
-                   selectedRecipients[0].displayName
-                 ) : (
-                   <span className="text-muted-foreground">{selectedRecipients.length} members selected</span>
-                 )
-              ) : (
-                <span className="text-muted-foreground">Search by name or email...</span>
-              )}
-              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-[400px] p-0" align="start">
-            <Command shouldFilter={false}> 
-              {/* disable local filtering since we do async search */}
-              <CommandInput 
-                placeholder="Type at least 3 chars..." 
-                value={query}
-                onValueChange={setQuery}
-              />
-              <CommandList>
-                {loading && (
-                    <div className="py-6 text-center text-sm text-muted-foreground flex justify-center items-center gap-2">
-                        <Loader2 className="w-4 h-4 animate-spin" /> Searching Azure AD...
-                    </div>
-                )}
-                {!loading && query.length < 3 && (
-                   <div className="py-6 text-center text-sm text-muted-foreground">
-                     Type to search...
-                   </div>
-                )}
-                {!loading && query.length >= 3 && searchResults.length === 0 && (
-                   <div className="p-2">
-                       <p className="text-sm text-center text-muted-foreground py-2">No user found.</p>
-                       <Button 
-                           variant="secondary" 
-                           onClick={handleAddManual}
-                           className="w-full text-xs"
-                        >
-                           + Add "{query}" manually
-                       </Button>
-                   </div>
-                )}
-                {!loading && searchResults.map((user) => (
-                  <CommandItem
-                    key={user.id}
-                    value={user.id} 
-                    onSelect={() => handleSelect(user)}
-                    className="cursor-pointer"
-                  >
-                    <Check
-                      className={cn(
-                        "mr-2 h-4 w-4",
-                        selectedRecipients.some(u => u.id === user.id) ? "opacity-100" : "opacity-0"
-                      )}
-                    />
-                    <div className="flex flex-col">
-                        <span className="font-medium">{user.displayName}</span>
-                        <span className="text-xs text-muted-foreground">{user.mail || user.userPrincipalName}</span>
-                    </div>
-                  </CommandItem>
-                ))}
-              </CommandList>
-            </Command>
-          </PopoverContent>
-        </Popover>
-        
-        {/* Team Chips Display */}
-        {type === "team" && selectedRecipients.length > 0 && (
-          <div className="flex flex-wrap gap-2 mt-2">
+
+        <div ref={containerRef} className="relative">
+          {/* Token field */}
+          <div
+            className={cn(
+              "min-h-[40px] w-full rounded-md border bg-input px-3 py-2 text-sm flex flex-wrap gap-1.5 items-center cursor-text transition-colors",
+              isFocused ? "ring-2 ring-ring border-ring" : "border-border",
+              error && "border-destructive ring-destructive"
+            )}
+            onClick={() => {
+              inputRef.current?.focus();
+              setIsFocused(true);
+            }}
+          >
+            {/* Chips */}
             {selectedRecipients.map((user) => (
-              <Badge key={user.id} variant="secondary" className="pl-2 pr-1 py-1 flex items-center gap-1">
+              <span
+                key={user.id}
+                className="inline-flex items-center gap-1 bg-primary/10 text-primary border border-primary/20 rounded px-2 py-0.5 text-xs font-medium shrink-0"
+              >
                 {user.displayName}
-                <button 
-                  onClick={() => handleRemove(user.id)}
-                  className="ml-1 hover:bg-muted-foreground/20 rounded-full p-0.5"
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onRecipientsChange(selectedRecipients.filter(u => u.id !== user.id));
+                  }}
+                  className="hover:text-destructive transition-colors ml-0.5"
                 >
                   <X className="w-3 h-3" />
                 </button>
-              </Badge>
+              </span>
             ))}
-          </div>
-        )}
 
-        {error && <p className="text-xs text-destructive mt-1">{error}</p>}
+            {/* Text input */}
+            {canAddMore && (
+              <input
+                ref={inputRef}
+                type="text"
+                value={inputValue}
+                onChange={(e) => {
+                  setInputValue(e.target.value);
+                  setIsFocused(true);
+                }}
+                onFocus={() => setIsFocused(true)}
+                onKeyDown={handleKeyDown}
+                onPaste={handlePaste}
+                placeholder={
+                  selectedRecipients.length === 0
+                    ? type === "individual"
+                      ? "Type a name or email..."
+                      : "Type names or paste a list..."
+                    : ""
+                }
+                className="flex-1 min-w-[140px] bg-transparent outline-none text-sm placeholder:text-muted-foreground"
+              />
+            )}
+
+            {loading && (
+              <Loader2 className="w-3.5 h-3.5 animate-spin text-muted-foreground ml-auto shrink-0" />
+            )}
+          </div>
+
+          {/* Suggestions dropdown */}
+          {showDropdown && (
+            <div className="absolute top-full left-0 right-0 mt-1 z-50 bg-popover border border-border rounded-md shadow-lg overflow-hidden max-h-56 overflow-y-auto">
+              {loading && (
+                <div className="px-3 py-4 text-sm text-center text-muted-foreground flex items-center justify-center gap-2">
+                  <Loader2 className="w-4 h-4 animate-spin" /> Searching directory...
+                </div>
+              )}
+              {!loading && suggestions.length === 0 && (
+                <div className="px-3 py-2">
+                  <p className="text-xs text-muted-foreground text-center py-1">No results found in directory.</p>
+                  <button
+                    type="button"
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      commitCurrent();
+                    }}
+                    className="w-full text-left text-xs px-2 py-1.5 rounded hover:bg-accent"
+                  >
+                    Add <span className="font-medium">"{inputValue.trim()}"</span> manually
+                  </button>
+                </div>
+              )}
+              {!loading && suggestions.map((user, i) => (
+                <button
+                  key={user.id}
+                  type="button"
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    addUser(user);
+                  }}
+                  className={cn(
+                    "w-full text-left px-3 py-2.5 text-sm flex flex-col hover:bg-accent transition-colors",
+                    i === activeIndex && "bg-accent"
+                  )}
+                >
+                  <span className="font-medium">{user.displayName}</span>
+                  <span className="text-xs text-muted-foreground">{user.mail || user.userPrincipalName}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {error && <p className="text-xs text-destructive">{error}</p>}
         {type === "team" && (
-            <p className="text-xs text-muted-foreground">
-                Search and add multiple team members.
-            </p>
+          <p className="text-xs text-muted-foreground">
+            Type a name or paste multiple names separated by commas — each resolves automatically.
+          </p>
         )}
       </div>
     </div>
