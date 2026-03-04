@@ -6,7 +6,8 @@ import { useEffect, useState } from "react"
 import { useRouter, usePathname } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
-import { Award, LogOut } from "lucide-react"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
+import { Award, LogOut, ShieldAlert } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { useAuth } from "@/hooks/use-auth" // Use new hook
 import { AppSidebar } from "@/components/ui/app-sidebar"
@@ -21,7 +22,7 @@ export default function DashboardLayout({
   const { toast } = useToast()
   
   // Use Azure Auth Hook
-  const { user, isAuthenticated, isLoading, logout } = useAuth()
+  const { user, isAuthenticated, isLoading, error, logout } = useAuth()
   
   // Determine admin status from Azure user roles (or default to false for now)
   // You might map specific Azure AD roles here later
@@ -43,6 +44,40 @@ export default function DashboardLayout({
       return pathname === "/dashboard"
     }
     return pathname.startsWith(path)
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Dialog open>
+          <DialogContent className="max-w-md" onInteractOutside={(e) => e.preventDefault()}>
+            <DialogHeader>
+              <div className="flex items-center gap-3 mb-1">
+                <div className="w-10 h-10 rounded-lg bg-destructive/10 flex items-center justify-center shrink-0">
+                  <ShieldAlert className="w-5 h-5 text-destructive" />
+                </div>
+                <DialogTitle>Authentication Failed</DialogTitle>
+              </div>
+              <DialogDescription className="text-sm leading-relaxed">
+                We couldn&apos;t verify your identity with the server. This is usually caused by a
+                misconfigured Azure AD app registration or an expired session.
+                <span className="block mt-3 font-mono text-xs bg-muted rounded px-2 py-1.5 text-muted-foreground break-all">
+                  {error.message}
+                </span>
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter className="gap-2 sm:gap-0">
+              <Button variant="outline" size="sm" onClick={() => router.push("/")}>
+                Go to Login
+              </Button>
+              <Button variant="destructive" size="sm" onClick={logout}>
+                Sign out of Microsoft
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
+    )
   }
 
   if (isLoading || !isAuthenticated) {

@@ -7,7 +7,6 @@ import {
   LayoutDashboard,
   Award,
   Megaphone,
-  Radar,
   User,
   Search,
   Settings,
@@ -63,13 +62,6 @@ export function AppSidebar({ className }: SidebarProps) {
   ]
 
   const intelligence = [
-    {
-      name: "My Learning Path",
-      icon: Radar,
-      href: "/dashboard/learning",
-      color: "text-purple-500",
-      comingSoon: false
-    },
     {
       name: "Talent Search",
       icon: Search,

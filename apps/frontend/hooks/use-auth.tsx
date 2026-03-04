@@ -27,41 +27,29 @@ export function useAuth() {
           instance.setActiveAccount(account);
       }
       
-      // Fetch user role from backend
       const fetchUserRole = async () => {
         try {
           const tokenResponse = await instance.acquireTokenSilent({
             ...loginRequest,
             account: account
           });
-          
+
           const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/me`, {
             headers: {
               'Authorization': `Bearer ${tokenResponse.accessToken}`
             }
           });
-          
-          if (response.ok) {
-            const userData = await response.json();
-            setUser(userData);
-          } else {
-            // Fallback to basic user if API call fails
-            setUser({
-              id: account.localAccountId,
-              name: account.name || "User",
-              email: account.username,
-              role: "user"
-            });
+
+          if (!response.ok) {
+            const text = await response.text();
+            throw new Error(`Failed to fetch user: ${response.status} ${text}`);
           }
+
+          const userData = await response.json();
+          setUser(userData);
         } catch (err) {
-          console.error("Failed to fetch user role", err);
-          // Fallback to basic user
-          setUser({
-            id: account.localAccountId,
-            name: account.name || "User",
-            email: account.username,
-            role: "user"
-          });
+          console.error("Auth error:", err);
+          setError(err as Error);
         } finally {
           setIsLoading(false);
         }

@@ -9,6 +9,7 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     environment:
+      - NODE_ENV=production
       - PORT=4000
       # Use host.docker.internal to access the DB on the host machine (192.168.117.114)
       - DATABASE_URL=postgresql://samiksha_user:Samiksha%407896@host.docker.internal:5432/samiksha_prod?schema=reflecto-ai-2

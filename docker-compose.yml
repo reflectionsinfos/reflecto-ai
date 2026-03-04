@@ -7,6 +7,7 @@ services:
     ports:
       - "4000:4000"
     environment:
+      - NODE_ENV=production
       - PORT=4000
       #- DATABASE_URL=postgresql://reflecto_user:reflecto_pass@postgres:5432/reflecto_db?schema=reflecto-ai-2
       - DATABASE_URL=postgresql://samiksha_user:Samiksha%407896@host.docker.internal:5432/samiksha_prod?schema=reflecto-ai-2

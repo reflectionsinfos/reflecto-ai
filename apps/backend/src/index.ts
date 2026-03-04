@@ -1,6 +1,6 @@
+import "./config/env"; // must be first — sets DATABASE_URL before any module creates a db pool
 import express from "express";
 import cors from "cors";
-import dotenv from "dotenv";
 import { initializeAuth } from "./middleware/auth";
 import { errorHandler } from "./middleware/errorHandler";
 
@@ -14,8 +14,6 @@ import aiRoutes from "./routes/ai.routes";
 // Swagger
 import swaggerUi from "swagger-ui-express";
 import { specs } from "./config/swagger";
-
-dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 4000;

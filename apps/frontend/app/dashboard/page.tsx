@@ -4,7 +4,6 @@ import Link from "next/link"
 import {
   Award,
   Megaphone,
-  Radar,
   User,
   Search,
   Image as ImageIcon,
@@ -65,14 +64,6 @@ export default function HubPage() {
   ]
 
   const growthApps = [
-    {
-      name: "My Learning Path",
-      description: "AI-powered daily lessons tailored to your tech stack.",
-      icon: Radar,
-      href: "/dashboard/learning",
-      color: "bg-purple-600",
-      comingSoon: false,
-    },
     {
       name: "Talent Search",
       description: "Find experts using natural language.",

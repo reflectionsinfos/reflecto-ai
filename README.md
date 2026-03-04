@@ -87,21 +87,96 @@ reflecto-ai/
 
 ### Environment Configuration
 
-Create `.env` files in both `apps/frontend` and `apps/backend`. See [deployment.md](./deployment.md) for production values.
+Both apps use separate env files per environment so you never need to manually edit them when switching between local and Docker/production.
 
-Key variables needed:
+#### How it works
 
+**Frontend** — Next.js loads env files automatically based on `NODE_ENV`:
+
+| File | Used when | `NEXT_PUBLIC_API_URL` |
+|---|---|---|
+| `apps/frontend/.env.local` | `next dev` (local) | `http://localhost:4000/api` |
+| `apps/frontend/.env.production` | `next build` / Docker | `/api` (nginx proxy) |
+
+**Backend** — Express loads env files in two layers:
+
+| File | Contains | Loaded by |
+|---|---|---|
+| `apps/backend/.env` | Shared: `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `GEMINI_API_KEY`, `PORT` | Always (auth middleware at startup) |
+| `apps/backend/.env.local` | Local: `DATABASE_URL` (localhost), `FRONTEND_URL` | When `NODE_ENV` ≠ `production` |
+| `apps/backend/.env.production` | Production: `DATABASE_URL` (prod server), `FRONTEND_URL` | When `NODE_ENV=production` |
+
+Docker Compose sets `NODE_ENV=production` on the backend container, so `.env.production` is picked up automatically. Locally, `NODE_ENV` is unset → `.env.local` is used.
+
+#### Azure AD app registrations
+
+Two separate app registrations are required in Azure AD:
+
+| Registration | Used by | Env var |
+|---|---|---|
+| **Frontend SPA** | MSAL login | `NEXT_PUBLIC_AZURE_CLIENT_ID` (frontend) |
+| **Backend API** | Token audience validation | `AZURE_CLIENT_ID` (backend) |
+
+The frontend acquires a token scoped to the backend API:
 ```
-# apps/backend/.env
-DATABASE_URL=postgresql://...
-AZURE_CLIENT_ID=...
-AZURE_TENANT_ID=...
-GEMINI_API_KEY=...
+NEXT_PUBLIC_AZURE_SCOPE=api://<backend-api-client-id>/access_as_user
+```
+The backend validates that the token's audience matches its own `AZURE_CLIENT_ID`. Both apps must share the same `AZURE_TENANT_ID`.
 
-# apps/frontend/.env.local
-NEXT_PUBLIC_API_URL=http://localhost:4000
-AZURE_AD_CLIENT_ID=...
-AZURE_AD_TENANT_ID=...
+#### Backend `.env` reference
+
+```env
+# apps/backend/.env  — shared across all environments
+PORT=4000
+AZURE_CLIENT_ID=<backend-api-app-registration-id>
+AZURE_TENANT_ID=<your-tenant-id>
+GEMINI_API_KEY=<your-gemini-key>
+```
+
+```env
+# apps/backend/.env.local  — local dev (npm run dev on your laptop)
+# Use the direct IP of the PostgreSQL host — host.docker.internal does NOT resolve outside Docker
+DATABASE_URL=postgresql://<user>:<pass>@192.168.117.144:5432/<db>?schema=reflecto-ai-2
+FRONTEND_URL=http://localhost:3000
+AZURE_REDIRECT_URI=http://localhost:4000/auth/azure/callback
+```
+
+```env
+# apps/backend/.env.production  — Docker containers (docker compose up)
+# Use host.docker.internal — resolves to the host machine from inside a container
+# On Linux hosts, docker-compose must also set extra_hosts: host.docker.internal:host-gateway
+DATABASE_URL=postgresql://<user>:<pass>@host.docker.internal:5432/<db>?schema=reflecto-ai-2
+FRONTEND_URL=https://your-prod-domain.com
+AZURE_REDIRECT_URI=https://your-prod-domain.com/auth/azure/callback
+```
+
+> **PostgreSQL host reference:**
+>
+> | Where the backend runs | Use |
+> |---|---|
+> | Local laptop (`npm run dev`) | `192.168.117.144` — direct IP, routable from the host |
+> | Inside Docker container | `host.docker.internal` — Docker's special DNS name that resolves to the host machine |
+>
+> `host.docker.internal` is only resolvable from within a Docker container. Using it in `.env.local` (local dev) will cause a connection failure.
+
+#### Frontend `.env` reference
+
+```env
+# apps/frontend/.env.local  — local dev only
+NEXT_PUBLIC_AZURE_AUTH_ENABLED=true
+NEXT_PUBLIC_AZURE_TENANT_ID=<your-tenant-id>
+NEXT_PUBLIC_AZURE_CLIENT_ID=<frontend-spa-app-registration-id>
+NEXT_PUBLIC_AZURE_SCOPE=api://<backend-api-client-id>/access_as_user
+NEXT_PUBLIC_API_URL=http://localhost:4000/api
+```
+
+```env
+# apps/frontend/.env.production  — production / Docker
+NEXT_PUBLIC_AZURE_AUTH_ENABLED=true
+NEXT_PUBLIC_AZURE_TENANT_ID=<your-tenant-id>
+NEXT_PUBLIC_AZURE_CLIENT_ID=<frontend-spa-app-registration-id>
+NEXT_PUBLIC_AZURE_SCOPE=api://<backend-api-client-id>/access_as_user
+NEXT_PUBLIC_API_URL=/api
 ```
 
 ### Installation
@@ -112,22 +187,45 @@ npm install
 
 ### Running the App
 
+**Option 1 — Both together (from repo root):**
+
 ```bash
+# Run frontend + backend concurrently via Turborepo
 npm run dev
 ```
 
 - **Frontend**: [http://localhost:3000](http://localhost:3000)
 - **Backend**: [http://localhost:4000](http://localhost:4000)
 
-### Database Management
+**Option 2 — Individually (separate terminals):**
 
 ```bash
-# Push schema changes (from apps/backend)
-npm run db:push
+# Terminal 1 — Backend (tsx watch, hot reload)
+cd apps/backend
+npm run dev
 
-# Seed database
-npm run seed
+# Terminal 2 — Frontend
+cd apps/frontend
+npm run dev
 ```
+
+### Database (Local)
+
+You need a PostgreSQL instance running locally. Either:
+
+- Install PostgreSQL natively and set `DATABASE_URL` in `apps/backend/.env`
+- Or run just the DB in Docker: `docker compose up -d postgres`
+
+```bash
+# Push schema and optionally seed (from apps/backend)
+cd apps/backend
+npm run db:push
+npm run seed    # optional
+```
+
+### Env Files Required
+
+See [Environment Configuration](#environment-configuration) above for the full reference and how env files are selected per environment.
 
 ## Docker Deployment
 
