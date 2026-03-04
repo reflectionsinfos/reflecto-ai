@@ -388,6 +388,39 @@ docker compose -f docker-compose.prod.yml logs -f
 
 ---
 
+### MVP1 Updates ✅ COMPLETED (March 2026)
+**Shout Out UX & Recipient Selector Improvements**
+
+**Shout Out — Generate & Download Flow**
+- Renamed "Publish Shout Out" button to **"Generate"** — matches Kudos Cards behaviour
+- Clicking Generate now downloads the card as a PNG (same flow as Kudos)
+- Card is saved to the database and appears in **My Card History**
+- Success modal updated: "Shout Out Generated!" with accurate description
+- "Go to Feed" renamed to **"Go to Card History"** linking to `/dashboard/my-cards`
+
+**Recipient Selector — Outlook-style Token Input**
+- Replaced combobox dropdown with an **inline token input** (chips inside the field)
+- Recipients appear as removable chips directly in the input — identical to Outlook's To field
+- Type → suggestions dropdown appears; navigate with arrow keys; `Enter`/`,`/`;` to add
+- `Backspace` on empty input removes the last chip
+- **Paste support**: paste comma/semicolon/newline-separated names or emails — each token is resolved against Azure AD in parallel; matched users become real directory chips, unmatched fall back to manual chips
+- Handles `"Name <email@co.com>"` format pasted from email clients
+- Individual mode locks to 1 chip; Team mode is unlimited
+- Applies to both **Kudos Cards** and **Shout Outs** (shared component)
+
+**Graph API Search Fix**
+- Search now matches **both `displayName` AND `mail`/`userPrincipalName`**
+- Email input (`@` detected) searches `mail` and `userPrincipalName` fields specifically
+- Uses `URLSearchParams` for proper query encoding
+- Minimum search length reduced from 3 to 2 characters
+
+**Files modified:**
+- `apps/frontend/app/dashboard/shout-out/page.tsx` — Generate button, download, success modal
+- `apps/frontend/components/recipient-selector.tsx` — Outlook-style token input rebuild
+- `apps/frontend/lib/graph-service.ts` — Multi-field search with email detection
+
+---
+
 ### Phase 3 🔄 PLANNED
 **Custom Template Full Feature Implementation**
 
