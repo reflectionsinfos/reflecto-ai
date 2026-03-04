@@ -32,6 +32,32 @@ export const customTemplates = mySchema.table("custom_templates", {
   isPublic: boolean("is_public").default(false).notNull(),  // admin can share org-wide
 });
 
+// Message Templates (default messages for system templates + org-wide custom templates)
+export const messageTemplates = mySchema.table("message_templates", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  templateId: varchar("template_id", { length: 50 }).notNull(), // "customer-centricity", "agility", or custom template UUID
+  templateType: varchar("template_type", { length: 20 }), // "system" or "custom"
+  messageCategory: varchar("message_category", { length: 50 }).notNull(), // "individual" or "team"
+  order: integer("order").notNull(), // 1-5, for consistent UI ordering
+  text: text("text").notNull(), // The actual message
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  createdBy: uuid("created_by").references(() => users.id), // NULL for system defaults
+  isPublic: boolean("is_public").default(true).notNull(),
+});
+
+// Custom Template Messages (user-customizable messages per custom template)
+export const customTemplateMessages = mySchema.table("custom_template_messages", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  customTemplateId: uuid("custom_template_id")
+    .references(() => customTemplates.id, { onDelete: "cascade" })
+    .notNull(),
+  messageCategory: varchar("message_category", { length: 50 }).notNull(), // "individual" or "team"
+  order: integer("order").notNull(), // 1-5
+  text: text("text").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at"),
+});
+
 // --- Talent Intelligence Platform Tables ---
 
 // Unified Recognition Events
