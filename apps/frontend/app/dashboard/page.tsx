@@ -38,7 +38,7 @@ export default function HubPage() {
       stats: "New",
     },
     {
-      name: "My Posters",
+      name: "My Card History",
       description: "View your created and received cards.",
       icon: ImageIcon,
       href: "/dashboard/my-cards", // Using existing route

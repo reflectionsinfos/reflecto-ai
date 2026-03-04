@@ -704,6 +704,151 @@ async function drawEmployeePhoto(
   }
 }
 
+/**
+ * Computes cell positions for a smart mosaic layout based on image count.
+ *
+ * Layouts (gap = 4px between cells):
+ *   1  → full frame
+ *   2  → 50 | 50
+ *   3  → 60 left | 40 right (2 stacked)
+ *   4  → 2 rows × 2 cols
+ *   5  → row of 2  +  row of 3
+ *   6  → 2 rows × 3 cols
+ *   7  → row of 3  +  row of 4
+ *   8  → 2 rows × 4 cols
+ *   9  → 3 rows × 3 cols
+ *  10  → 3+4+3 rows
+ *  11  → 4+4+3 rows
+ *  12  → 3 rows × 4 cols
+ *  13  → 4+5+4 rows
+ *  14  → 5+4+5 rows
+ *  15  → 3 rows × 5 cols
+ * 16+  → auto square grid (ceil(√n) cols)
+ */
+function computePhotoCells(
+  count: number,
+  x: number, y: number,
+  width: number, height: number,
+  gap: number
+): Array<{ x: number; y: number; w: number; h: number }> {
+  type Cell = { x: number; y: number; w: number; h: number };
+  const cells: Cell[] = [];
+
+  const rowOf = (n: number, rowX: number, rowY: number, rowW: number, rowH: number) => {
+    const cellW = (rowW - (n - 1) * gap) / n;
+    for (let i = 0; i < n; i++) {
+      cells.push({ x: rowX + i * (cellW + gap), y: rowY, w: cellW, h: rowH });
+    }
+  };
+
+  if (count === 1) {
+    cells.push({ x, y, w: width, h: height });
+
+  } else if (count === 2) {
+    rowOf(2, x, y, width, height);
+
+  } else if (count === 3) {
+    const wLeft = (width - gap) * 0.6;
+    const wRight = width - wLeft - gap;
+    const hRight = (height - gap) / 2;
+    cells.push({ x, y, w: wLeft, h: height });
+    cells.push({ x: x + wLeft + gap, y, w: wRight, h: hRight });
+    cells.push({ x: x + wLeft + gap, y: y + hRight + gap, w: wRight, h: hRight });
+
+  } else if (count === 4) {
+    const h = (height - gap) / 2;
+    rowOf(2, x, y, width, h);
+    rowOf(2, x, y + h + gap, width, h);
+
+  } else if (count === 5) {
+    // 2 on top, 3 on bottom
+    const h = (height - gap) / 2;
+    rowOf(2, x, y, width, h);
+    rowOf(3, x, y + h + gap, width, h);
+
+  } else if (count === 6) {
+    // 3 on top, 3 on bottom
+    const h = (height - gap) / 2;
+    rowOf(3, x, y, width, h);
+    rowOf(3, x, y + h + gap, width, h);
+
+  } else if (count === 7) {
+    // 3 on top, 4 on bottom
+    const h = (height - gap) / 2;
+    rowOf(3, x, y, width, h);
+    rowOf(4, x, y + h + gap, width, h);
+
+  } else if (count === 8) {
+    // 4 on top, 4 on bottom
+    const h = (height - gap) / 2;
+    rowOf(4, x, y, width, h);
+    rowOf(4, x, y + h + gap, width, h);
+
+  } else if (count === 9) {
+    // 3×3 grid
+    const h = (height - 2 * gap) / 3;
+    rowOf(3, x, y, width, h);
+    rowOf(3, x, y + h + gap, width, h);
+    rowOf(3, x, y + 2 * (h + gap), width, h);
+
+  } else if (count === 10) {
+    // 3 + 4 + 3
+    const h = (height - 2 * gap) / 3;
+    rowOf(3, x, y, width, h);
+    rowOf(4, x, y + h + gap, width, h);
+    rowOf(3, x, y + 2 * (h + gap), width, h);
+
+  } else if (count === 11) {
+    // 4 + 4 + 3
+    const h = (height - 2 * gap) / 3;
+    rowOf(4, x, y, width, h);
+    rowOf(4, x, y + h + gap, width, h);
+    rowOf(3, x, y + 2 * (h + gap), width, h);
+
+  } else if (count === 12) {
+    // 3 rows × 4 cols
+    const h = (height - 2 * gap) / 3;
+    rowOf(4, x, y, width, h);
+    rowOf(4, x, y + h + gap, width, h);
+    rowOf(4, x, y + 2 * (h + gap), width, h);
+
+  } else if (count === 13) {
+    // 4 + 5 + 4
+    const h = (height - 2 * gap) / 3;
+    rowOf(4, x, y, width, h);
+    rowOf(5, x, y + h + gap, width, h);
+    rowOf(4, x, y + 2 * (h + gap), width, h);
+
+  } else if (count === 14) {
+    // 5 + 4 + 5
+    const h = (height - 2 * gap) / 3;
+    rowOf(5, x, y, width, h);
+    rowOf(4, x, y + h + gap, width, h);
+    rowOf(5, x, y + 2 * (h + gap), width, h);
+
+  } else if (count === 15) {
+    // 3 rows × 5 cols
+    const h = (height - 2 * gap) / 3;
+    rowOf(5, x, y, width, h);
+    rowOf(5, x, y + h + gap, width, h);
+    rowOf(5, x, y + 2 * (h + gap), width, h);
+
+  } else {
+    // 16+ → auto square grid
+    const cols = Math.ceil(Math.sqrt(count));
+    const rows = Math.ceil(count / cols);
+    const cellW = (width - (cols - 1) * gap) / cols;
+    const cellH = (height - (rows - 1) * gap) / rows;
+    for (let i = 0; i < count; i++) {
+      const col = i % cols;
+      const row = Math.floor(i / cols);
+      cells.push({ x: x + col * (cellW + gap), y: y + row * (cellH + gap), w: cellW, h: cellH });
+    }
+  }
+
+  return cells;
+}
+
 async function drawTeamPhotos(
   ctx: CanvasRenderingContext2D,
   data: KudosCardData,
@@ -730,7 +875,7 @@ async function drawTeamPhotos(
     ctx.fill()
     ctx.clip() // Clip everything to the main rounded rect
 
-    const count = Math.min(data.images.length, 4); // Handle up to 4 for now (2x2)
+    const count = Math.min(data.images.length, 15); // Support up to 15 team photos
     const imagesToDraw = data.images.slice(0, count);
     const loadedImages: HTMLImageElement[] = [];
 
@@ -755,36 +900,12 @@ async function drawTeamPhotos(
         return;
     }
 
-    /*
-      Layouts:
-      2: Split Vertical (Left | Right)
-      3: One Big Left, Two Small Stacked Right
-      4: 2x2 Grid
-    */
+    const gap = 4;
+    const cells = computePhotoCells(loadedImages.length, x, y, width, height, gap);
 
-    const gap = 4; // Gap between images
-    
-    if (loadedImages.length === 2) {
-        const w = (width - gap) / 2;
-        await drawImageCover(ctx, loadedImages[0], x, y, w, height);
-        await drawImageCover(ctx, loadedImages[1], x + w + gap, y, w, height);
-    } else if (loadedImages.length === 3) {
-        const wLeft = (width - gap) * 0.6; // Left image slightly larger
-        const wRight = width - wLeft - gap;
-        const hRight = (height - gap) / 2;
-        
-        await drawImageCover(ctx, loadedImages[0], x, y, wLeft, height);
-        await drawImageCover(ctx, loadedImages[1], x + wLeft + gap, y, wRight, hRight);
-        await drawImageCover(ctx, loadedImages[2], x + wLeft + gap, y + hRight + gap, wRight, hRight);
-    } else { 
-        // 4 or more -> 2x2 Grid
-        const w = (width - gap) / 2;
-        const h = (height - gap) / 2;
-        
-        await drawImageCover(ctx, loadedImages[0], x, y, w, h);
-        await drawImageCover(ctx, loadedImages[1], x + w + gap, y, w, h);
-        await drawImageCover(ctx, loadedImages[2], x, y + h + gap, w, h);
-        await drawImageCover(ctx, loadedImages[3], x + w + gap, y + h + gap, w, h);
+    for (let i = 0; i < loadedImages.length; i++) {
+        const cell = cells[i];
+        await drawImageCover(ctx, loadedImages[i], cell.x, cell.y, cell.w, cell.h);
     }
 
     ctx.restore(); // Restore context to remove clipping

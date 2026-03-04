@@ -17,10 +17,12 @@ import {
   X,
   ChevronLeft,
   ChevronRight,
+  Loader2,
 } from "lucide-react"
 import { useAuth } from "@/hooks/use-auth"
 import { useToast } from "@/hooks/use-toast"
 import { cardStorage, type StoredCard } from "@/lib/card-storage"
+import { Skeleton } from "@/components/ui/skeleton"
 
 interface KudosCard {
   id: string
@@ -45,6 +47,7 @@ export default function MyCardsPage() {
   const [viewCard, setViewCard] = useState<StoredCard | null>(null)
   const [deleteCard, setDeleteCard] = useState<StoredCard | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [isFetching, setIsFetching] = useState(true)
   const [currentPage, setCurrentPage] = useState(1)
   const [cardsPerPage] = useState(12)
 
@@ -53,35 +56,43 @@ export default function MyCardsPage() {
   console.log("MyCardsPage Render: ", { currentUser, isAuthLoading, userIsAdmin });
 
   useEffect(() => {
-    if (currentUser) {
-      console.log("MyCardsPage Effect Triggered. Fetching cards...");
-      const fetchCards = async () => {
-        try {
-          if (userIsAdmin) {
-            console.log("Fetching all cards (Admin)...");
-            const allCards = await cardStorage.getAllCards()
-            const sortedCards = allCards.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    if (isAuthLoading) return; // wait for auth to resolve
+
+    if (!currentUser) {
+      setIsFetching(false);
+      return;
+    }
+
+    console.log("MyCardsPage Effect Triggered. Fetching cards...");
+    const fetchCards = async () => {
+      setIsFetching(true);
+      try {
+        if (userIsAdmin) {
+          console.log("Fetching all cards (Admin)...");
+          const allCards = await cardStorage.getAllCards()
+          const sortedCards = allCards.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+          setCards(sortedCards)
+          setFilteredCards(sortedCards)
+        } else {
+          if (currentUser?.id) {
+            const userCards = await cardStorage.getCardsByUser(currentUser.id)
+            const sortedCards = userCards.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
             setCards(sortedCards)
             setFilteredCards(sortedCards)
-          } else {
-            if (currentUser?.id) {
-                const userCards = await cardStorage.getCardsByUser(currentUser.id)
-                const sortedCards = userCards.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-                setCards(sortedCards)
-                setFilteredCards(sortedCards)
-            }
           }
-        } catch (error) {
-          toast({
-            title: "Error",
-            description: "Failed to load cards. Please try again.",
-            variant: "destructive",
-          })
         }
+      } catch (error) {
+        toast({
+          title: "Error",
+          description: "Failed to load cards. Please try again.",
+          variant: "destructive",
+        })
+      } finally {
+        setIsFetching(false);
       }
-      fetchCards()
     }
-  }, [currentUser, userIsAdmin])
+    fetchCards()
+  }, [currentUser, userIsAdmin, isAuthLoading])
 
   useEffect(() => {
     let filtered = cards
@@ -216,6 +227,59 @@ export default function MyCardsPage() {
   const handlePageChange = (page: number) => {
     setCurrentPage(page)
     window.scrollTo({ top: 0, behavior: "smooth" })
+  }
+
+  if (isAuthLoading || isFetching) {
+    return (
+      <div className="max-w-7xl mx-auto px-6 py-8">
+        {/* Header Skeleton */}
+        <div className="mb-8">
+          <Skeleton className="h-8 w-48 mb-2" />
+          <Skeleton className="h-4 w-96" />
+        </div>
+
+        {/* Filters Skeleton */}
+        <div className="mb-6 flex flex-col sm:flex-row gap-4">
+          <Skeleton className="h-10 flex-1" />
+          <Skeleton className="h-10 w-48" />
+        </div>
+
+        {/* Stats Skeleton */}
+        <div className="mb-6 flex gap-4">
+          <Skeleton className="h-10 w-32" />
+          <Skeleton className="h-10 w-32" />
+        </div>
+
+        {/* Loading indicator */}
+        <div className="flex items-center justify-center gap-3 py-4 mb-6 text-muted-foreground">
+          <Loader2 className="w-5 h-5 animate-spin text-primary" />
+          <span className="text-sm">Loading your card history...</span>
+        </div>
+
+        {/* Cards Grid Skeleton */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <Card key={i} className="border-border">
+              <CardContent className="p-0">
+                <Skeleton className="aspect-[4/5] rounded-t-lg" />
+                <div className="p-4 space-y-3">
+                  <div className="flex justify-between items-start">
+                    <Skeleton className="h-5 w-24" />
+                    <Skeleton className="h-5 w-16" />
+                  </div>
+                  <Skeleton className="h-4 w-full" />
+                  <Skeleton className="h-4 w-3/4" />
+                  <div className="space-y-1">
+                    <Skeleton className="h-3 w-20" />
+                    <Skeleton className="h-3 w-24" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
+    )
   }
 
   return (

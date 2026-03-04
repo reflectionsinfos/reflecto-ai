@@ -54,7 +54,7 @@ export function AppSidebar({ className }: SidebarProps) {
       color: "text-amber-500",
     }] : []),
     {
-      name: "My Posters",
+      name: "My Card History",
       icon: ImageIcon,
       href: "/dashboard/my-cards",
       color: "text-pink-500",

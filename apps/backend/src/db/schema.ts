@@ -1,4 +1,4 @@
-import { pgSchema, varchar, text, timestamp, json, uuid, integer } from "drizzle-orm/pg-core";
+import { pgSchema, varchar, text, timestamp, json, uuid, integer, boolean } from "drizzle-orm/pg-core";
 
 // Define schema namespace
 export const mySchema = pgSchema("reflecto-ai-2");
@@ -18,6 +18,18 @@ export const users = mySchema.table("users", {
   role: varchar("role", { length: 50 }).default('user').notNull(), // 'admin' | 'user'
   tenantId: uuid("tenant_id").references(() => tenants.id),
   createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Custom Templates (user-defined kudos card templates)
+export const customTemplates = mySchema.table("custom_templates", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  createdBy: uuid("created_by").references(() => users.id).notNull(),
+  name: varchar("name", { length: 100 }).notNull(),
+  tagline: varchar("tagline", { length: 200 }),
+  color: varchar("color", { length: 50 }).notNull(),    // e.g. "blue", "teal"
+  iconName: varchar("icon_name", { length: 50 }).notNull(), // e.g. "Star", "Trophy"
+  isPublic: boolean("is_public").default(false).notNull(),  // admin can share org-wide
 });
 
 // --- Talent Intelligence Platform Tables ---

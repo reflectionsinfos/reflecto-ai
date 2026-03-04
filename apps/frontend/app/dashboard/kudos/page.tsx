@@ -21,7 +21,21 @@ import {
   AlertTriangle,
   CheckCircle,
   Sparkles,
+  Plus,
+  Star,
+  Trophy,
+  Rocket,
+  Brain,
+  Heart,
+  Flame,
+  Shield,
+  Crown,
+  Lightbulb,
+  ThumbsUp,
+  Medal,
+  Loader2,
 } from "lucide-react"
+import { apiClient } from "@/lib/api-client"
 import { generateKudosCard, generateKudosCardToCanvas } from "@/lib/image-generator"
 import { logToGoogleSheets } from "@/lib/google-sheets"
 import { useToast } from "@/hooks/use-toast"
@@ -31,6 +45,50 @@ import { cardStorage, type StoredCard } from "@/lib/card-storage"
 import { RecipientSelector } from "@/components/recipient-selector"
 import type { GraphUser } from "@/lib/graph-service"
 import { AiMessageAssistant } from "@/components/ai-message-assistant"
+
+// ── Custom Template types & constants ────────────────────────────────────────
+
+interface SavedCustomTemplate {
+  id: string
+  name: string
+  tagline: string | null
+  color: string    // e.g. "blue"
+  iconName: string // e.g. "Star"
+  isPublic: boolean
+  createdBy: string
+  createdAt: string
+}
+
+const CUSTOM_ICON_MAP: Record<string, React.ElementType> = {
+  Star, Trophy, Rocket, Brain, Heart, Flame, Shield, Crown, Lightbulb, ThumbsUp, Medal, Sparkles,
+}
+
+const CUSTOM_COLORS = [
+  { name: "blue",    bg: "bg-blue-500",    ring: "ring-blue-500" },
+  { name: "purple",  bg: "bg-purple-500",  ring: "ring-purple-500" },
+  { name: "emerald", bg: "bg-emerald-500", ring: "ring-emerald-500" },
+  { name: "orange",  bg: "bg-orange-500",  ring: "ring-orange-500" },
+  { name: "red",     bg: "bg-red-500",     ring: "ring-red-500" },
+  { name: "teal",    bg: "bg-teal-500",    ring: "ring-teal-500" },
+  { name: "pink",    bg: "bg-pink-500",    ring: "ring-pink-500" },
+  { name: "indigo",  bg: "bg-indigo-500",  ring: "ring-indigo-500" },
+]
+
+/** Converts a SavedCustomTemplate from the DB into a template object compatible with the rest of the form */
+function toTemplateObj(t: SavedCustomTemplate) {
+  return {
+    id: t.id,
+    name: t.name,
+    description: t.tagline || "A custom recognition award",
+    color: `bg-${t.color}-500`,
+    gradient: `from-${t.color}-500 to-${t.color}-700`,
+    icon: CUSTOM_ICON_MAP[t.iconName] ?? Star,
+    _isCustom: true as const,
+    _savedId: t.id,
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 const templates = [
   {
@@ -155,7 +213,7 @@ export default function DashboardPage() {
   const { toast } = useToast()
   const { user } = useAuth() // Get user from hook
 
-  const [selectedTemplate, setSelectedTemplate] = useState(templates[0])
+  const [selectedTemplate, setSelectedTemplate] = useState<any>(templates[0])
   
   const [formData, setFormData] = useState({
     recipientType: "individual" as "individual" | "team",
@@ -178,17 +236,89 @@ export default function DashboardPage() {
   const [errors, setErrors] = useState<Record<string, string>>({})
 
   const [showConfirmDialog, setShowConfirmDialog] = useState(false)
-  const [pendingTemplate, setPendingTemplate] = useState<(typeof templates)[0] | null>(null)
+  const [pendingTemplate, setPendingTemplate] = useState<any | null>(null)
 
   const [showSuccessModal, setShowSuccessModal] = useState(false)
   const [generatedCardData, setGeneratedCardData] = useState<any>(null)
-  
+
+  // ── Custom Template state ─────────────────────────────────────────────────
+  const [savedCustomTemplates, setSavedCustomTemplates] = useState<SavedCustomTemplate[]>([])
+  const [showCustomDialog, setShowCustomDialog] = useState(false)
+  const [isSavingTemplate, setIsSavingTemplate] = useState(false)
+  const [customForm, setCustomForm] = useState({
+    name: "",
+    tagline: "",
+    color: "blue",
+    iconName: "Star",
+  })
+  const [customFormErrors, setCustomFormErrors] = useState<Record<string, string>>({})
+  const [deletingTemplateId, setDeletingTemplateId] = useState<string | null>(null)
+  // ─────────────────────────────────────────────────────────────────────────
+
   // Sync creator name when user loads
   useEffect(() => {
     if (user) {
       setFormData((prev) => ({ ...prev, creatorName: user.email || user.name || "" }))
     }
   }, [user])
+
+  // Fetch saved custom templates after auth resolves
+  useEffect(() => {
+    if (!user) return
+    apiClient.get<SavedCustomTemplate[]>("/custom-templates")
+      .then((rows) => setSavedCustomTemplates(rows))
+      .catch(() => { /* non-critical — silently ignore */ })
+  }, [user])
+
+  // ── Custom Template handlers ──────────────────────────────────────────────
+
+  const handleOpenCustomDialog = () => {
+    setCustomForm({ name: "", tagline: "", color: "blue", iconName: "Star" })
+    setCustomFormErrors({})
+    setShowCustomDialog(true)
+  }
+
+  const handleCustomTemplateCreate = async () => {
+    const errs: Record<string, string> = {}
+    if (!customForm.name.trim()) errs.name = "Template name is required"
+    if (Object.keys(errs).length) { setCustomFormErrors(errs); return }
+
+    setIsSavingTemplate(true)
+    try {
+      const saved = await apiClient.post<SavedCustomTemplate>("/custom-templates", {
+        name: customForm.name.trim(),
+        tagline: customForm.tagline.trim() || null,
+        color: customForm.color,
+        iconName: customForm.iconName,
+      })
+      setSavedCustomTemplates((prev) => [...prev, saved])
+      setSelectedTemplate(toTemplateObj(saved) as any)
+      setShowCustomDialog(false)
+    } catch {
+      toast({ title: "Error", description: "Failed to save custom template.", variant: "destructive" })
+    } finally {
+      setIsSavingTemplate(false)
+    }
+  }
+
+  const handleDeleteCustomTemplate = async (e: React.MouseEvent, id: string) => {
+    e.stopPropagation()
+    setDeletingTemplateId(id)
+    try {
+      await apiClient.delete(`/custom-templates/${id}`)
+      setSavedCustomTemplates((prev) => prev.filter((t) => t.id !== id))
+      // If the deleted template is currently selected, fall back to first built-in
+      if ((selectedTemplate as any)._savedId === id) {
+        setSelectedTemplate(templates[0])
+      }
+    } catch {
+      toast({ title: "Error", description: "Failed to delete template.", variant: "destructive" })
+    } finally {
+      setDeletingTemplateId(null)
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
 
   const generateLivePreview = async () => {
     setIsPreviewLoading(true)
@@ -296,6 +426,11 @@ export default function DashboardPage() {
         return;
     }
 
+    if (formData.recipientType === "team" && files.length > 15) {
+        setErrors(prev => ({ ...prev, image: "Team cards support up to 15 images." }));
+        return;
+    }
+
     // Convert to array
     const fileList = Array.from(files);
     
@@ -347,8 +482,8 @@ export default function DashboardPage() {
 
     if (!formData.message.trim()) {
       newErrors.message = "Kudos message is required"
-    } else if (formData.message.length > 160) {
-      newErrors.message = "Message must be 160 characters or less"
+    } else if (formData.message.length > 250) {
+      newErrors.message = "Message must be 250 characters or less"
     }
 
     if (!formData.creatorName.trim()) {
@@ -534,7 +669,7 @@ export default function DashboardPage() {
     return formData.recipients.length > 0 || formData.message.trim() !== "" || formData.images.length > 0
   }
 
-  const handleTemplateSelection = (template: (typeof templates)[0]) => {
+  const handleTemplateSelection = (template: any) => {
      if (template.id === selectedTemplate.id) return 
      if (hasFormData()) {
        setPendingTemplate(template)
@@ -590,6 +725,7 @@ export default function DashboardPage() {
         <div className="mb-8">
           <h3 className="text-lg font-semibold text-foreground mb-4">Choose Template</h3>
           <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
+            {/* Built-in templates */}
             {templates.map((template) => {
               const IconComponent = template.icon
               return (
@@ -612,6 +748,55 @@ export default function DashboardPage() {
                 </Card>
               )
             })}
+
+            {/* Saved custom templates */}
+            {savedCustomTemplates.map((saved) => {
+              const tmpl = toTemplateObj(saved)
+              const IconComponent = tmpl.icon
+              const isSelected = selectedTemplate.id === tmpl.id
+              return (
+                <Card
+                  key={saved.id}
+                  className={`relative cursor-pointer transition-all duration-200 hover:scale-[1.02] shadow-md hover:shadow-lg group ${
+                    isSelected ? "ring-2 ring-primary shadow-lg" : ""
+                  }`}
+                  onClick={() => handleTemplateSelection(tmpl as any)}
+                >
+                  <CardContent className="p-4 text-center">
+                    <div className={`w-12 h-12 ${tmpl.color} rounded-lg flex items-center justify-center mx-auto mb-3 shadow-sm`}>
+                      <IconComponent className="w-6 h-6 text-white" />
+                    </div>
+                    <h4 className="font-semibold text-card-foreground mb-1 text-sm truncate">{tmpl.name}</h4>
+                    <p className="text-xs text-muted-foreground leading-tight truncate">{tmpl.description}</p>
+                  </CardContent>
+                  {/* Delete button */}
+                  <button
+                    className="absolute top-1.5 right-1.5 opacity-0 group-hover:opacity-100 transition-opacity bg-destructive/90 hover:bg-destructive text-white rounded-full w-5 h-5 flex items-center justify-center"
+                    onClick={(e) => handleDeleteCustomTemplate(e, saved.id)}
+                    title="Delete template"
+                  >
+                    {deletingTemplateId === saved.id
+                      ? <Loader2 className="w-3 h-3 animate-spin" />
+                      : <X className="w-3 h-3" />
+                    }
+                  </button>
+                </Card>
+              )
+            })}
+
+            {/* "+ Custom" create-new card */}
+            <Card
+              className="cursor-pointer transition-all duration-200 hover:scale-[1.02] border-2 border-dashed border-border hover:border-primary hover:shadow-lg"
+              onClick={handleOpenCustomDialog}
+            >
+              <CardContent className="p-4 text-center">
+                <div className="w-12 h-12 bg-muted rounded-lg flex items-center justify-center mx-auto mb-3">
+                  <Plus className="w-6 h-6 text-muted-foreground" />
+                </div>
+                <h4 className="font-semibold text-card-foreground mb-1 text-sm">Custom</h4>
+                <p className="text-xs text-muted-foreground leading-tight">Build your own award template</p>
+              </CardContent>
+            </Card>
           </div>
         </div>
 
@@ -669,7 +854,7 @@ export default function DashboardPage() {
                       value={formData.message}
                       onChange={(e) => handleInputChange("message", e.target.value)}
                       className={`min-h-[100px] bg-input border-border resize-none ${errors.message ? "border-destructive" : "focus:ring-accent focus:border-accent"}`}
-                      maxLength={130}
+                      maxLength={250}
                     />
                     <div className="flex justify-between items-center mt-1">
                       {errors.message ? (
@@ -677,15 +862,15 @@ export default function DashboardPage() {
                       ) : (
                         <p className="text-xs text-muted-foreground">Share what makes them special</p>
                       )}
-                      <p className={`text-xs ${messageLength > 110 ? "text-destructive" : "text-muted-foreground"}`}>
-                        {messageLength}/130
+                      <p className={`text-xs ${messageLength > 230 ? "text-destructive" : "text-muted-foreground"}`}>
+                        {messageLength}/250
                       </p>
                     </div>
                   </div>
 
                   <div>
                     <Label htmlFor="image" className="text-sm font-semibold text-foreground mb-2 block">
-                      {formData.recipientType === 'individual' ? "Upload Image (Optional)" : "Upload Images (Optional, up to 4)"}
+                      {formData.recipientType === 'individual' ? "Upload Image (Optional)" : "Upload Images (Optional, up to 15)"}
                     </Label>
                     <label
                       htmlFor="image"
@@ -879,6 +1064,124 @@ export default function DashboardPage() {
           <p className="text-muted-foreground text-sm">© {new Date().getFullYear()} Reflections.</p>
         </div>
       </footer>
+
+      {/* ── Custom Template Dialog ─────────────────────────────────────────── */}
+      {showCustomDialog && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-card border border-border rounded-xl shadow-2xl w-full max-w-md">
+            <div className="flex items-center justify-between p-6 border-b border-border">
+              <h2 className="text-lg font-semibold text-foreground">Create Custom Template</h2>
+              <button
+                onClick={() => setShowCustomDialog(false)}
+                className="text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-5">
+              {/* Template Name */}
+              <div>
+                <Label className="text-sm font-semibold mb-1.5 block">Template Name *</Label>
+                <Input
+                  placeholder="e.g. Innovation Champion"
+                  maxLength={40}
+                  value={customForm.name}
+                  onChange={(e) => setCustomForm((p) => ({ ...p, name: e.target.value }))}
+                  className={`bg-input border-border ${customFormErrors.name ? "border-destructive" : ""}`}
+                />
+                {customFormErrors.name && (
+                  <p className="text-xs text-destructive mt-1">{customFormErrors.name}</p>
+                )}
+              </div>
+
+              {/* Tagline */}
+              <div>
+                <Label className="text-sm font-semibold mb-1.5 block">Tagline <span className="text-muted-foreground font-normal">(optional)</span></Label>
+                <Input
+                  placeholder="e.g. Pushing boundaries every day"
+                  maxLength={80}
+                  value={customForm.tagline}
+                  onChange={(e) => setCustomForm((p) => ({ ...p, tagline: e.target.value }))}
+                  className="bg-input border-border"
+                />
+              </div>
+
+              {/* Theme Color */}
+              <div>
+                <Label className="text-sm font-semibold mb-2 block">Theme Color</Label>
+                <div className="flex flex-wrap gap-2">
+                  {CUSTOM_COLORS.map((c) => (
+                    <button
+                      key={c.name}
+                      onClick={() => setCustomForm((p) => ({ ...p, color: c.name }))}
+                      className={`w-8 h-8 rounded-full ${c.bg} transition-all ${
+                        customForm.color === c.name ? `ring-2 ring-offset-2 ring-offset-card ${c.ring} scale-110` : "hover:scale-105"
+                      }`}
+                      title={c.name}
+                    />
+                  ))}
+                </div>
+              </div>
+
+              {/* Icon */}
+              <div>
+                <Label className="text-sm font-semibold mb-2 block">Icon</Label>
+                <div className="grid grid-cols-6 gap-2">
+                  {Object.entries(CUSTOM_ICON_MAP).map(([name, IconComp]) => (
+                    <button
+                      key={name}
+                      onClick={() => setCustomForm((p) => ({ ...p, iconName: name }))}
+                      className={`p-2 rounded-lg border transition-all flex items-center justify-center ${
+                        customForm.iconName === name
+                          ? "border-primary bg-primary/10 text-primary"
+                          : "border-border bg-input text-muted-foreground hover:border-primary/50"
+                      }`}
+                      title={name}
+                    >
+                      <IconComp className="w-4 h-4" />
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Preview strip */}
+              <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
+                <div className={`w-10 h-10 bg-${customForm.color}-500 rounded-lg flex items-center justify-center shadow-sm shrink-0`}>
+                  {(() => { const I = CUSTOM_ICON_MAP[customForm.iconName] ?? Star; return <I className="w-5 h-5 text-white" /> })()}
+                </div>
+                <div className="overflow-hidden">
+                  <p className="font-semibold text-sm text-foreground truncate">{customForm.name || "Template Name"}</p>
+                  <p className="text-xs text-muted-foreground truncate">{customForm.tagline || "Your tagline here"}</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex gap-3 p-6 pt-0">
+              <Button
+                variant="outline"
+                className="flex-1 border-border"
+                onClick={() => setShowCustomDialog(false)}
+                disabled={isSavingTemplate}
+              >
+                Cancel
+              </Button>
+              <Button
+                className="flex-1 bg-primary hover:bg-primary/90 text-primary-foreground"
+                onClick={handleCustomTemplateCreate}
+                disabled={isSavingTemplate}
+              >
+                {isSavingTemplate ? (
+                  <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Saving...</>
+                ) : (
+                  <><Sparkles className="w-4 h-4 mr-2" />Create Template</>
+                )}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* ──────────────────────────────────────────────────────────────────── */}
     </>
   )
 }

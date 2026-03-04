@@ -10,6 +10,7 @@ import userRoutes from "./routes/user.routes";
 import recognitionRoutes from "./routes/recognition.routes";
 import learningRoutes from "./routes/learning.routes";
 import aiRoutes from "./routes/ai.routes";
+import customTemplatesRoutes from "./routes/custom-templates.routes";
 
 // Swagger
 import swaggerUi from "swagger-ui-express";
@@ -50,6 +51,7 @@ app.use("/api/users", userRoutes);
 app.use("/api/recognition", recognitionRoutes);
 app.use("/api/learning", learningRoutes);
 app.use("/api/ai", aiRoutes);
+app.use("/api/custom-templates", customTemplatesRoutes);
 
 // Global Error Handler
 app.use(errorHandler);
