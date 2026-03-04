@@ -5,6 +5,8 @@ export interface KudosCardData {
     color: string
     gradient: string
     icon: string
+    backgroundImageBlob?: string | null  // NEW: Base64-encoded background image
+    logoBlob?: string | null              // NEW: Company logo (optional)
   }
   recipientName: string
   designation: string
@@ -229,71 +231,161 @@ async function generateGenericTemplate(
   canvas: HTMLCanvasElement,
   data: KudosCardData,
 ): Promise<void> {
-  // Create gradient background
-  const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height)
+  // Check if custom background image is provided
+  if (data.template.backgroundImageBlob) {
+    // Draw custom background image
+    const bgImg = new Image()
+    bgImg.crossOrigin = "anonymous"
 
-  // Parse gradient colors from template
-  const gradientColors = getGradientColors(data.template.gradient)
-  gradient.addColorStop(0, gradientColors.start)
-  gradient.addColorStop(1, gradientColors.end)
+    await new Promise((resolve, reject) => {
+      bgImg.onload = resolve
+      bgImg.onerror = reject
+      bgImg.src = data.template.backgroundImageBlob as string
+    })
 
-  ctx.fillStyle = gradient
-  ctx.fillRect(0, 0, canvas.width, canvas.height)
+    // Draw background to fill entire canvas
+    ctx.drawImage(bgImg, 0, 0, canvas.width, canvas.height)
 
-  // Add white card background
-  const cardPadding = 80
-  const cardX = cardPadding
-  const cardY = cardPadding
-  const cardWidth = canvas.width - cardPadding * 2
-  const cardHeight = canvas.height - cardPadding * 2
+    // Add semi-transparent dark overlay for text readability (bottom 50%)
+    const overlayHeight = (canvas.height * 50) / 100
+    const gradient = ctx.createLinearGradient(0, canvas.height - overlayHeight, 0, canvas.height)
+    gradient.addColorStop(0, "rgba(0, 0, 0, 0)")
+    gradient.addColorStop(1, "rgba(0, 0, 0, 0.9)") // 90% opacity overlay
+    ctx.fillStyle = gradient
+    ctx.fillRect(0, canvas.height - overlayHeight, canvas.width, overlayHeight)
 
-  ctx.fillStyle = "white"
-  ctx.shadowColor = "rgba(0, 0, 0, 0.1)"
-  ctx.shadowBlur = 20
-  ctx.shadowOffsetY = 10
-  ctx.fillRect(cardX, cardY, cardWidth, cardHeight)
-  ctx.shadowColor = "transparent"
+    // Use white text on dark overlay
+    const textColor = "#ffffff"
+    const subtitleColor = "#e5e7eb"
 
-  // Add template icon/circle
-  const iconSize = 120
-  const iconX = canvas.width / 2 - iconSize / 2
-  const iconY = 200
+    // Add template name
+    ctx.fillStyle = textColor
+    ctx.font = "bold 48px Arial, sans-serif"
+    ctx.textAlign = "center"
+    ctx.fillText(data.template.name, canvas.width / 2, 400)
 
-  ctx.fillStyle = gradientColors.start
-  ctx.beginPath()
-  ctx.arc(iconX + iconSize / 2, iconY + iconSize / 2, iconSize / 2, 0, 2 * Math.PI)
-  ctx.fill()
+    // Add "Recognition Award" subtitle
+    ctx.fillStyle = subtitleColor
+    ctx.font = "32px Arial, sans-serif"
+    ctx.fillText("Recognition Award", canvas.width / 2, 450)
 
-  // Add template name
-  ctx.fillStyle = "#1f2937"
-  ctx.font = "bold 48px Arial, sans-serif"
-  ctx.textAlign = "center"
-  ctx.fillText(data.template.name, canvas.width / 2, 400)
+    // Add recipient name
+    ctx.fillStyle = textColor
+    drawScaledText(ctx, data.recipientName, canvas.width / 2, 600, canvas.width - 160, 56, "Arial, sans-serif")
 
-  // Add "Recognition Award" subtitle
-  ctx.fillStyle = "#6b7280"
-  ctx.font = "32px Arial, sans-serif"
-  ctx.fillText("Recognition Award", canvas.width / 2, 450)
+    // Add designation
+    ctx.fillStyle = subtitleColor
+    ctx.font = "36px Arial, sans-serif"
+    ctx.fillText(data.designation, canvas.width / 2, 650)
 
-  // Add recipient name
-  ctx.fillStyle = "#1f2937"
-  drawScaledText(ctx, data.recipientName, canvas.width / 2, 600, cardWidth - 40, 56, "Arial, sans-serif")
+    // Add message (with text wrapping)
+    ctx.fillStyle = textColor
+    ctx.font = "italic 32px Arial, sans-serif"
+    wrapText(ctx, data.message, canvas.width / 2, 750, canvas.width - 160, 40)
 
-  // Add designation
-  ctx.fillStyle = "#6b7280"
-  ctx.font = "36px Arial, sans-serif"
-  ctx.fillText(data.designation, canvas.width / 2, 650)
+    // Add creator info at bottom
+    ctx.fillStyle = "#d1d5db"
+    ctx.font = "28px Arial, sans-serif"
+    ctx.fillText(`Recognized by: ${data.creatorName}`, canvas.width / 2, 1150)
+    ctx.fillText(new Date().toLocaleDateString(), canvas.width / 2, 1200)
+  } else {
+    // Original gradient background for templates without custom images
+    const gradientBg = ctx.createLinearGradient(0, 0, 0, canvas.height)
+    const gradientColors = getGradientColors(data.template.gradient)
+    gradientBg.addColorStop(0, gradientColors.start)
+    gradientBg.addColorStop(1, gradientColors.end)
 
-  // Add message (with text wrapping)
-  ctx.fillStyle = "#374151"
-  ctx.font = "italic 32px Arial, sans-serif"
-  wrapText(ctx, data.message, canvas.width / 2, 750, cardWidth - 160, 40)
+    ctx.fillStyle = gradientBg
+    ctx.fillRect(0, 0, canvas.width, canvas.height)
 
-  // Add creator info at bottom
-  ctx.fillStyle = "#9ca3af"
-  ctx.font = "28px Arial, sans-serif"
-  ctx.fillText(`Recognized by: ${data.creatorName}`, canvas.width / 2, 1150)
-  ctx.fillText(new Date().toLocaleDateString(), canvas.width / 2, 1200)
+    // Add white card background
+    const cardPadding = 80
+    const cardX = cardPadding
+    const cardY = cardPadding
+    const cardWidth = canvas.width - cardPadding * 2
+    const cardHeight = canvas.height - cardPadding * 2
+
+    ctx.fillStyle = "white"
+    ctx.shadowColor = "rgba(0, 0, 0, 0.1)"
+    ctx.shadowBlur = 20
+    ctx.shadowOffsetY = 10
+    ctx.fillRect(cardX, cardY, cardWidth, cardHeight)
+    ctx.shadowColor = "transparent"
+
+    // Add template icon/circle
+    const iconSize = 120
+    const iconX = canvas.width / 2 - iconSize / 2
+    const iconY = 200
+
+    ctx.fillStyle = gradientColors.start
+    ctx.beginPath()
+    ctx.arc(iconX + iconSize / 2, iconY + iconSize / 2, iconSize / 2, 0, 2 * Math.PI)
+    ctx.fill()
+
+    // Add template name
+    ctx.fillStyle = "#1f2937"
+    ctx.font = "bold 48px Arial, sans-serif"
+    ctx.textAlign = "center"
+    ctx.fillText(data.template.name, canvas.width / 2, 400)
+
+    // Add "Recognition Award" subtitle
+    ctx.fillStyle = "#6b7280"
+    ctx.font = "32px Arial, sans-serif"
+    ctx.fillText("Recognition Award", canvas.width / 2, 450)
+
+    // Add recipient name
+    ctx.fillStyle = "#1f2937"
+    drawScaledText(ctx, data.recipientName, canvas.width / 2, 600, cardWidth - 40, 56, "Arial, sans-serif")
+
+    // Add designation
+    ctx.fillStyle = "#6b7280"
+    ctx.font = "36px Arial, sans-serif"
+    ctx.fillText(data.designation, canvas.width / 2, 650)
+
+    // Add message (with text wrapping)
+    ctx.fillStyle = "#374151"
+    ctx.font = "italic 32px Arial, sans-serif"
+    wrapText(ctx, data.message, canvas.width / 2, 750, cardWidth - 160, 40)
+
+    // Add creator info at bottom
+    ctx.fillStyle = "#9ca3af"
+    ctx.font = "28px Arial, sans-serif"
+    ctx.fillText(`Recognized by: ${data.creatorName}`, canvas.width / 2, 1150)
+    ctx.fillText(new Date().toLocaleDateString(), canvas.width / 2, 1200)
+  }
+
+  // Draw company logo at top-center if provided
+  if (data.template.logoBlob) {
+    const logoImg = new Image()
+    logoImg.crossOrigin = "anonymous"
+
+    await new Promise((resolve, reject) => {
+      logoImg.onload = resolve
+      logoImg.onerror = reject
+      logoImg.src = data.template.logoBlob as string
+    })
+
+    // Logo size: 80x80px, centered horizontally, 30px from top
+    const logoSize = 80
+    const logoX = canvas.width / 2 - logoSize / 2
+    const logoY = 30
+
+    // Draw circular frame for logo
+    ctx.save()
+    ctx.beginPath()
+    ctx.arc(canvas.width / 2, logoY + logoSize / 2, logoSize / 2, 0, Math.PI * 2)
+    ctx.fillStyle = "#ffffff"
+    ctx.fill()
+    ctx.restore()
+
+    // Draw logo image clipped to circle
+    ctx.save()
+    ctx.beginPath()
+    ctx.arc(canvas.width / 2, logoY + logoSize / 2, logoSize / 2 - 3, 0, Math.PI * 2)
+    ctx.clip()
+    ctx.drawImage(logoImg, logoX, logoY, logoSize, logoSize)
+    ctx.restore()
+  }
 }
 
 async function generateAgilityChampion(

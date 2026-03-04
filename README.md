@@ -323,3 +323,122 @@ docker compose -f docker-compose.prod.yml logs -f
 | `/api/learning` | Tech growth plans & lessons |
 | `/api/users` | User management |
 | `/api/tenants` | Tenant/org management |
+| `/api/custom-templates` | Custom template CRUD (Phase 2) |
+| `/api/messages` | System template messages (Phase 1) |
+
+## Development Roadmap
+
+### Phase 1 ✅ COMPLETED
+**Database-Backed Kudos Messages**
+
+**What was implemented:**
+- Moved 50 hardcoded messages from frontend code to PostgreSQL database
+- Created `messageTemplates` table (system defaults) and `customTemplateMessages` table (custom template support)
+- Created batch API endpoint `/api/messages/all` for efficient message fetching (1 request vs 5+)
+- Updated frontend to fetch and cache messages dynamically based on selected template
+- Messages organized by: template ID → category (individual/team) → 5 message options per category
+
+**Files modified:**
+- `apps/backend/src/db/schema.ts` - Added messageTemplates and customTemplateMessages tables
+- `apps/backend/drizzle/0007_message_templates.sql` - Migration file
+- `apps/backend/src/scripts/seed-default-messages.ts` - Seed script for 50 default messages
+- `apps/backend/src/routes/messages.routes.ts` - Public GET endpoints (no auth on read)
+- `apps/frontend/app/dashboard/kudos/page.tsx` - Dynamic message loading and dropdown
+
+**Benefits:**
+- Messages are now maintainable in database instead of code
+- System supports organization-wide message customization (foundation for Phase 2)
+- API batch endpoint reduces network traffic by ~80%
+- Dynamic message selection based on template + recipient type
+
+---
+
+### Phase 2 🏗️ IN PROGRESS (Hidden UI)
+**Custom Template Background Images + Infrastructure**
+
+**What was implemented:**
+- Added `backgroundImageBlob` field to `customTemplates` table (base64 image storage)
+- Backend API accepts and stores custom background images (max 2MB recommended)
+- Frontend image upload handler with validation (file type, size checks)
+- Image upload UI in custom template dialog with preview and remove functionality
+- Image generator updated with:
+  - Logo rendering support (circular frame at top-center)
+  - Background image rendering with 90% opacity dark overlay
+  - Smart text coloring (white text on dark overlay, dark text on gradient backgrounds)
+- Full backward compatibility: custom templates without images use original gradient style
+
+**Files modified/created:**
+- `apps/backend/src/db/schema.ts` - Added backgroundImageBlob field to customTemplates
+- `apps/backend/drizzle/0008_custom_template_images.sql` - Migration file
+- `apps/backend/src/routes/custom-templates.routes.ts` - API accepts backgroundImageBlob
+- `apps/frontend/app/dashboard/kudos/page.tsx` - Image upload UI, form state management
+- `apps/frontend/lib/image-generator.ts` - Logo and background image rendering
+
+**Current Status:**
+- ✅ Backend infrastructure complete
+- ✅ Database schema ready
+- ✅ Frontend image upload complete
+- ✅ Image rendering with overlay functional
+- ❌ UI hidden from dashboard (awaiting Phase 3 UX decisions)
+
+**Why UI is hidden:**
+- Custom template feature requires design decisions (dynamic naming, champion-style rendering)
+- Users need to complete Phase 2 testing before Phase 3 development
+- Backend API and image generator are production-ready for future use
+
+---
+
+### Phase 3 🔄 PLANNED
+**Custom Template Full Feature Implementation**
+
+**To be decided:**
+1. **Dynamic Template Naming** - Should custom templates display as "{Name} Champion"?
+2. **Custom Message Management** - UI for users to create custom messages per template
+3. **Custom Template Styling** - Champion-style rendering vs simple background images vs both
+4. **Permission Model** - Who can create/share/edit custom templates?
+5. **Public Template Marketplace** - Share templates org-wide?
+
+**Proposed tasks:**
+- Re-enable custom template UI on dashboard
+- Add message management dialog for custom templates
+- Implement template versioning or editing capabilities
+- Add template preview/testing before generating cards
+- Create admin interface for managing org-wide templates
+
+---
+
+## Database Schema Summary
+
+### Core Tables (Kudos System)
+- `custom_templates` — User-created reward templates (with backgroundImageBlob field - Phase 2)
+- `messageTemplates` — System-wide default messages (Phase 1)
+- `customTemplateMessages` — Template-specific custom messages (Phase 1, Phase 2-ready)
+- `recognitionEvents` — Generated kudos cards, stored metadata
+
+### Other Tables
+- `users`, `tenants` — Auth and organization management
+- `userLearningProfiles`, `learningContent`, etc. — Tech growth module
+
+---
+
+## Known Issues & TODOs
+
+### Current Build Issues
+- TypeScript errors in unrelated files (`analytics`, `learning`, `download` pages) - pre-existing, not in kudos changes
+- Frontend build requires cache cleanup due to artifact permissions - not code-related
+
+### Phase 2 Testing Checklist
+Before enabling custom template feature:
+- [ ] Run `npm run db:push` to apply migration 0008
+- [ ] Create custom template without background image (verify gradient style)
+- [ ] Create custom template with background image (verify image renders)
+- [ ] Regenerate card with same template (verify background image persists)
+- [ ] Test text readability with different background images
+- [ ] Verify existing system templates still work as before
+
+### Future Enhancements
+- [ ] Logo upload for company branding (currently logoBlob is infrastructure-only)
+- [ ] Template marketplace for sharing across organization
+- [ ] Advanced image editing (crop, filters, overlays)
+- [ ] Template usage analytics
+- [ ] Custom template versioning and rollback

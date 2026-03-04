@@ -40,14 +40,14 @@ router.get("/", authenticate(), async (req: any, res) => {
 /**
  * POST /api/custom-templates
  * Creates a new custom template for the authenticated user.
- * Body: { name, tagline?, color, iconName, isPublic? }
+ * Body: { name, tagline?, color, iconName, isPublic?, backgroundImageBlob? }
  */
 router.post("/", authenticate(), async (req: any, res) => {
   try {
     const userEmail = req.user?.email || req.user?.preferred_username;
     const userName = req.user?.name;
 
-    const { name, tagline, color, iconName, isPublic } = req.body;
+    const { name, tagline, color, iconName, isPublic, backgroundImageBlob } = req.body;
 
     if (!name || !color || !iconName) {
       return res.status(400).json({ error: "name, color, and iconName are required" });
@@ -80,6 +80,7 @@ router.post("/", authenticate(), async (req: any, res) => {
         color,
         iconName,
         isPublic: effectiveIsPublic,
+        backgroundImageBlob: backgroundImageBlob || null,
       })
       .returning();
 

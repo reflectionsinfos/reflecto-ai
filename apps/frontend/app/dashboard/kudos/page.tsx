@@ -57,6 +57,7 @@ interface SavedCustomTemplate {
   isPublic: boolean
   createdBy: string
   createdAt: string
+  backgroundImageBlob?: string | null  // NEW: Base64-encoded background image
 }
 
 const CUSTOM_ICON_MAP: Record<string, React.ElementType> = {
@@ -83,6 +84,8 @@ function toTemplateObj(t: SavedCustomTemplate) {
     color: `bg-${t.color}-500`,
     gradient: `from-${t.color}-500 to-${t.color}-700`,
     icon: CUSTOM_ICON_MAP[t.iconName] ?? Star,
+    backgroundImageBlob: t.backgroundImageBlob || null,
+    logoBlob: null, // Will use system logo (to be added)
     _isCustom: true as const,
     _savedId: t.id,
   }
@@ -182,6 +185,8 @@ export default function DashboardPage() {
     tagline: "",
     color: "blue",
     iconName: "Star",
+    backgroundImageBlob: null as string | null,
+    backgroundImagePreview: null as string | null,
   })
   const [customFormErrors, setCustomFormErrors] = useState<Record<string, string>>({})
   const [deletingTemplateId, setDeletingTemplateId] = useState<string | null>(null)
@@ -258,7 +263,7 @@ export default function DashboardPage() {
   // ── Custom Template handlers ──────────────────────────────────────────────
 
   const handleOpenCustomDialog = () => {
-    setCustomForm({ name: "", tagline: "", color: "blue", iconName: "Star" })
+    setCustomForm({ name: "", tagline: "", color: "blue", iconName: "Star", backgroundImageBlob: null, backgroundImagePreview: null })
     setCustomFormErrors({})
     setShowCustomDialog(true)
   }
@@ -275,6 +280,7 @@ export default function DashboardPage() {
         tagline: customForm.tagline.trim() || null,
         color: customForm.color,
         iconName: customForm.iconName,
+        backgroundImageBlob: customForm.backgroundImageBlob,
       })
       setSavedCustomTemplates((prev) => [...prev, saved])
       setSelectedTemplate(toTemplateObj(saved) as any)
@@ -284,6 +290,35 @@ export default function DashboardPage() {
     } finally {
       setIsSavingTemplate(false)
     }
+  }
+
+  const handleBackgroundImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    // Validate file type
+    if (!file.type.startsWith("image/")) {
+      toast({ title: "Error", description: "Please select an image file", variant: "destructive" })
+      return
+    }
+
+    // Validate file size (2MB max)
+    if (file.size > 2 * 1024 * 1024) {
+      toast({ title: "Error", description: "Image must be smaller than 2MB", variant: "destructive" })
+      return
+    }
+
+    // Convert to base64
+    const reader = new FileReader()
+    reader.onload = (evt) => {
+      const base64 = evt.target?.result as string
+      setCustomForm((p) => ({
+        ...p,
+        backgroundImageBlob: base64,
+        backgroundImagePreview: base64,
+      }))
+    }
+    reader.readAsDataURL(file)
   }
 
   const handleDeleteCustomTemplate = async (e: React.MouseEvent, id: string) => {
@@ -734,54 +769,59 @@ export default function DashboardPage() {
               )
             })}
 
-            {/* Saved custom templates */}
-            {savedCustomTemplates.map((saved) => {
-              const tmpl = toTemplateObj(saved)
-              const IconComponent = tmpl.icon
-              const isSelected = selectedTemplate.id === tmpl.id
-              return (
+            {/* TODO: Custom templates feature - hidden for now, will be developed in Phase 3 */}
+            {false && (
+              <>
+                {/* Saved custom templates */}
+                {savedCustomTemplates.map((saved) => {
+                  const tmpl = toTemplateObj(saved)
+                  const IconComponent = tmpl.icon
+                  const isSelected = selectedTemplate.id === tmpl.id
+                  return (
+                    <Card
+                      key={saved.id}
+                      className={`relative cursor-pointer transition-all duration-200 hover:scale-[1.02] shadow-md hover:shadow-lg group ${
+                        isSelected ? "ring-2 ring-primary shadow-lg" : ""
+                      }`}
+                      onClick={() => handleTemplateSelection(tmpl as any)}
+                    >
+                      <CardContent className="p-4 text-center">
+                        <div className={`w-12 h-12 ${tmpl.color} rounded-lg flex items-center justify-center mx-auto mb-3 shadow-sm`}>
+                          <IconComponent className="w-6 h-6 text-white" />
+                        </div>
+                        <h4 className="font-semibold text-card-foreground mb-1 text-sm truncate">{tmpl.name}</h4>
+                        <p className="text-xs text-muted-foreground leading-tight truncate">{tmpl.description}</p>
+                      </CardContent>
+                      {/* Delete button */}
+                      <button
+                        className="absolute top-1.5 right-1.5 opacity-0 group-hover:opacity-100 transition-opacity bg-destructive/90 hover:bg-destructive text-white rounded-full w-5 h-5 flex items-center justify-center"
+                        onClick={(e) => handleDeleteCustomTemplate(e, saved.id)}
+                        title="Delete template"
+                      >
+                        {deletingTemplateId === saved.id
+                          ? <Loader2 className="w-3 h-3 animate-spin" />
+                          : <X className="w-3 h-3" />
+                        }
+                      </button>
+                    </Card>
+                  )
+                })}
+
+                {/* "+ Custom" create-new card */}
                 <Card
-                  key={saved.id}
-                  className={`relative cursor-pointer transition-all duration-200 hover:scale-[1.02] shadow-md hover:shadow-lg group ${
-                    isSelected ? "ring-2 ring-primary shadow-lg" : ""
-                  }`}
-                  onClick={() => handleTemplateSelection(tmpl as any)}
+                  className="cursor-pointer transition-all duration-200 hover:scale-[1.02] border-2 border-dashed border-border hover:border-primary hover:shadow-lg"
+                  onClick={handleOpenCustomDialog}
                 >
                   <CardContent className="p-4 text-center">
-                    <div className={`w-12 h-12 ${tmpl.color} rounded-lg flex items-center justify-center mx-auto mb-3 shadow-sm`}>
-                      <IconComponent className="w-6 h-6 text-white" />
+                    <div className="w-12 h-12 bg-muted rounded-lg flex items-center justify-center mx-auto mb-3">
+                      <Plus className="w-6 h-6 text-muted-foreground" />
                     </div>
-                    <h4 className="font-semibold text-card-foreground mb-1 text-sm truncate">{tmpl.name}</h4>
-                    <p className="text-xs text-muted-foreground leading-tight truncate">{tmpl.description}</p>
+                    <h4 className="font-semibold text-card-foreground mb-1 text-sm">Custom</h4>
+                    <p className="text-xs text-muted-foreground leading-tight">Build your own award template</p>
                   </CardContent>
-                  {/* Delete button */}
-                  <button
-                    className="absolute top-1.5 right-1.5 opacity-0 group-hover:opacity-100 transition-opacity bg-destructive/90 hover:bg-destructive text-white rounded-full w-5 h-5 flex items-center justify-center"
-                    onClick={(e) => handleDeleteCustomTemplate(e, saved.id)}
-                    title="Delete template"
-                  >
-                    {deletingTemplateId === saved.id
-                      ? <Loader2 className="w-3 h-3 animate-spin" />
-                      : <X className="w-3 h-3" />
-                    }
-                  </button>
                 </Card>
-              )
-            })}
-
-            {/* "+ Custom" create-new card */}
-            <Card
-              className="cursor-pointer transition-all duration-200 hover:scale-[1.02] border-2 border-dashed border-border hover:border-primary hover:shadow-lg"
-              onClick={handleOpenCustomDialog}
-            >
-              <CardContent className="p-4 text-center">
-                <div className="w-12 h-12 bg-muted rounded-lg flex items-center justify-center mx-auto mb-3">
-                  <Plus className="w-6 h-6 text-muted-foreground" />
-                </div>
-                <h4 className="font-semibold text-card-foreground mb-1 text-sm">Custom</h4>
-                <p className="text-xs text-muted-foreground leading-tight">Build your own award template</p>
-              </CardContent>
-            </Card>
+              </>
+            )}
           </div>
         </div>
 
@@ -1057,7 +1097,8 @@ export default function DashboardPage() {
       </footer>
 
       {/* ── Custom Template Dialog ─────────────────────────────────────────── */}
-      {showCustomDialog && (
+      {/* TODO: Custom template dialog - hidden for now, will be developed in Phase 3 */}
+      {false && showCustomDialog && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-card border border-border rounded-xl shadow-2xl w-full max-w-md">
             <div className="flex items-center justify-between p-6 border-b border-border">
@@ -1096,6 +1137,39 @@ export default function DashboardPage() {
                   onChange={(e) => setCustomForm((p) => ({ ...p, tagline: e.target.value }))}
                   className="bg-input border-border"
                 />
+              </div>
+
+              {/* Background Image Upload */}
+              <div>
+                <Label className="text-sm font-semibold mb-1.5 block">Background Image <span className="text-muted-foreground font-normal">(optional)</span></Label>
+                <label className="flex flex-col items-center justify-center w-full h-24 border-2 border-dashed border-border rounded-lg cursor-pointer bg-input hover:bg-muted/50 transition-colors">
+                  <div className="flex flex-col items-center justify-center pt-3 pb-3">
+                    <Upload className="w-5 h-5 text-muted-foreground mb-1" />
+                    <p className="text-xs text-muted-foreground">Click to upload (max 2MB)</p>
+                  </div>
+                  <input
+                    type="file"
+                    className="hidden"
+                    accept="image/*"
+                    onChange={handleBackgroundImageUpload}
+                  />
+                </label>
+                {customForm.backgroundImagePreview && (
+                  <div className="mt-2 relative">
+                    <img
+                      src={customForm.backgroundImagePreview}
+                      alt="Preview"
+                      className="w-full h-20 object-cover rounded-lg"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setCustomForm((p) => ({ ...p, backgroundImageBlob: null, backgroundImagePreview: null }))}
+                      className="absolute top-1 right-1 bg-destructive/90 hover:bg-destructive text-white rounded-full w-5 h-5 flex items-center justify-center text-xs"
+                    >
+                      ×
+                    </button>
+                  </div>
+                )}
               </div>
 
               {/* Theme Color */}

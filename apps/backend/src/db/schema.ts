@@ -30,6 +30,7 @@ export const customTemplates = mySchema.table("custom_templates", {
   color: varchar("color", { length: 50 }).notNull(),    // e.g. "blue", "teal"
   iconName: varchar("icon_name", { length: 50 }).notNull(), // e.g. "Star", "Trophy"
   isPublic: boolean("is_public").default(false).notNull(),  // admin can share org-wide
+  backgroundImageBlob: text("background_image_blob"), // Base64-encoded background image, nullable
 });
 
 // Message Templates (default messages for system templates + org-wide custom templates)
