@@ -562,6 +562,8 @@ export default function DashboardPage() {
 
       if (ctx) {
         await generateKudosCardToCanvas(canvas, cardDataPayload)
+
+        const fullImageBase64 = canvas.toDataURL("image/png", 1.0)
         
         // Thumbnail generation...
         const thumbnailCanvas = document.createElement("canvas")
@@ -603,6 +605,7 @@ export default function DashboardPage() {
             message: formData.message,
             createdAt: new Date().toISOString(),
             thumbnailUrl: realThumbnailBase64,
+            imageBlob: fullImageBase64,
             cardData: cardDataPayload,
             recipientType: formData.recipientType,
             recipientEmails: cardDataPayload.recipientEmails
@@ -1028,7 +1031,11 @@ export default function DashboardPage() {
               </p>
 
               <div className="space-y-3">
-                <Button onClick={handleRedownload} className="w-full" variant="outline">
+                <Button
+                  onClick={handleRedownload}
+                  className="w-full transition-transform active:scale-[0.98]"
+                  variant="outline"
+                >
                   <Download className="w-4 h-4 mr-2" />
                   Download Again
                 </Button>

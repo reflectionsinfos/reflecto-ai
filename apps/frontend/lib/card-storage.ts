@@ -27,7 +27,7 @@ const mapEventToCard = (event: any): StoredCard => {
         templateId: event.metadata?.templateId || "",
         message: event.metadata?.message || "",
         createdAt: event.createdAt,
-        thumbnailUrl: event.imageBlob || "", // Use imageBlob for thumbnail display
+        thumbnailUrl: event.metadata?.thumbnailUrl || event.imageBlob || "",
         cardData: event.metadata?.cardData || {},
         imageBlob: event.imageBlob,
         recipientType: event.type === 'KUDOS' ? 'individual' : 'team', // Infer
@@ -66,13 +66,14 @@ class CardStorageManager {
       const payload = {
           type: "KUDOS",
           recipients: card.recipientEmails || [], 
-          imageBlob: card.thumbnailUrl, // Use Thumbnail as the image blob
+          imageBlob: card.imageBlob || card.thumbnailUrl,
           metadata: {
               recipientName: card.recipientName,
               recipientType: card.recipientType,
               template: card.template,
               templateId: card.templateId,
               message: card.message,
+              thumbnailUrl: card.thumbnailUrl,
               cardData: card.cardData
           },
           privacyLevel: "PUBLIC"

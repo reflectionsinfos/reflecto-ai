@@ -118,8 +118,23 @@ export default function MyCardsPage() {
 
   const handleDownload = async (card: StoredCard) => {
     try {
-      const { generateKudosCard } = await import("@/lib/image-generator")
-      await generateKudosCard(card.cardData)
+      // Match the same source priority used by the preview modal so
+      // older cards with a good thumbnail but stale full image still
+      // download the version that actually contains the recipient photos.
+      const imageUrl = card.thumbnailUrl || card.imageBlob
+
+      if (imageUrl) {
+        const filename = `recognition-card-${card.recipientName.replace(/\s+/g, "-").toLowerCase()}.png`
+        const link = document.createElement("a")
+        link.href = imageUrl
+        link.download = filename
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+      } else {
+        const { generateKudosCard } = await import("@/lib/image-generator")
+        await generateKudosCard(card.cardData)
+      }
 
       if (currentUser) {
         cardStorage.logDownload(card.id, currentUser)
