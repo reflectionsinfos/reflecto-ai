@@ -1,4 +1,4 @@
-import { msalInstance, loginRequest } from "./azure-auth";
+import { graphTokenRequest, msalInstance } from "./azure-auth";
 
 export interface GraphUser {
   id: string;
@@ -13,7 +13,7 @@ export async function getGraphAccessToken(): Promise<string | null> {
 
   try {
     const response = await msalInstance?.acquireTokenSilent({
-      scopes: ["User.Read.All"],
+      ...graphTokenRequest,
       account: account,
     });
     return response?.accessToken || null;

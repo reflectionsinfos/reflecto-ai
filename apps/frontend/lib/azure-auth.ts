@@ -1,5 +1,9 @@
 import { Configuration, PublicClientApplication } from "@azure/msal-browser";
 
+const apiScope =
+  process.env.NEXT_PUBLIC_AZURE_SCOPE ||
+  `api://${process.env.NEXT_PUBLIC_AZURE_CLIENT_ID}/access_as_user`;
+
 export const msalConfig: Configuration = {
   auth: {
     clientId: process.env.NEXT_PUBLIC_AZURE_CLIENT_ID || "",
@@ -16,18 +20,19 @@ export const msalConfig: Configuration = {
 
 export const msalInstance = new PublicClientApplication(msalConfig);
 
-export const loginRequest = {
+export const apiTokenRequest = {
   scopes: [
-    process.env.NEXT_PUBLIC_AZURE_SCOPE || "api://" + process.env.NEXT_PUBLIC_AZURE_CLIENT_ID + "/access_as_user",
-    "User.Read", 
-    "User.Read.All", 
-    "openid", 
-    "profile", 
+    apiScope,
+    "openid",
+    "profile",
     "offline_access"
   ]
 };
 
+export const loginRequest = apiTokenRequest;
 
-export const graphScopes = ["User.Read.All"];
+export const graphTokenRequest = {
+  scopes: ["User.Read.All"],
+};
 
 

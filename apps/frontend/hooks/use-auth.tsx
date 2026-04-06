@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useMsal } from "@azure/msal-react";
 import { loginRequest } from "../lib/azure-auth";
+import { apiClient } from "../lib/api-client";
 
 // Define User type based on backend/schema
 export interface User {
@@ -29,23 +30,7 @@ export function useAuth() {
       
       const fetchUserRole = async () => {
         try {
-          const tokenResponse = await instance.acquireTokenSilent({
-            ...loginRequest,
-            account: account
-          });
-
-          const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/me`, {
-            headers: {
-              'Authorization': `Bearer ${tokenResponse.accessToken}`
-            }
-          });
-
-          if (!response.ok) {
-            const text = await response.text();
-            throw new Error(`Failed to fetch user: ${response.status} ${text}`);
-          }
-
-          const userData = await response.json();
+          const userData = await apiClient.get<User>("/users/me");
           setUser(userData);
         } catch (err) {
           console.error("Auth error:", err);

@@ -1,0 +1,7 @@
+env.dev
+env.qa
+env.prod
+.known_hosts_*
+*.tar.gz
+ssh-askpass.cmd
+known_hosts_tmp

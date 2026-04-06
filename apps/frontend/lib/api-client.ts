@@ -1,4 +1,4 @@
-import { msalInstance, loginRequest } from "./azure-auth";
+import { apiTokenRequest, msalInstance } from "./azure-auth";
 import { InteractionRequiredAuthError } from "@azure/msal-browser";
 
 /**
@@ -84,7 +84,7 @@ class ApiClient {
       }
 
       const response = await msalInstance.acquireTokenSilent({
-        ...loginRequest,
+        ...apiTokenRequest,
         account: activeAccount,
       });
 
@@ -92,10 +92,14 @@ class ApiClient {
     } catch (error) {
       console.error("Silent token acquisition failed", error);
       if (error instanceof InteractionRequiredAuthError) {
-        // In a real app, you might trigger a redirect here or throw to let the UI handle it
+        throw new Error(
+          "Azure consent is required for the backend API scope. Sign out and sign in again, then accept the permission prompt."
+        );
+      }
+      if (error instanceof Error) {
         throw error;
       }
-      return null;
+      throw new Error("Failed to acquire Azure access token for backend API.");
     }
   }
 

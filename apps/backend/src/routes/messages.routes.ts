@@ -2,9 +2,26 @@ import { Router } from "express";
 import { db } from "../db";
 import { messageTemplates, customTemplateMessages, users, customTemplates } from "../db/schema";
 import { authenticate } from "../middleware/auth";
-import { eq, and } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 
 const router = Router();
+type MessageCategory = "individual" | "team";
+
+function isMessageCategory(value: unknown): value is MessageCategory {
+  return value === "individual" || value === "team";
+}
+
+function groupMessagesByCategory<T extends { messageCategory: string }>(rows: T[]) {
+  const grouped: Record<MessageCategory, T[]> = { individual: [], team: [] };
+
+  rows.forEach((row) => {
+    if (isMessageCategory(row.messageCategory)) {
+      grouped[row.messageCategory].push(row);
+    }
+  });
+
+  return grouped;
+}
 
 /**
  * GET /api/messages/all
@@ -23,11 +40,14 @@ router.get("/all", async (req, res) => {
     // Group by templateId
     const allMessages: Record<string, { individual: any[]; team: any[] }> = {};
 
-    sysMessages.forEach((msg: any) => {
+    sysMessages.forEach((msg) => {
       if (!allMessages[msg.templateId]) {
         allMessages[msg.templateId] = { individual: [], team: [] };
       }
-      allMessages[msg.templateId][msg.messageCategory].push(msg);
+      if (isMessageCategory(msg.messageCategory)) {
+        const category: MessageCategory = msg.messageCategory;
+        allMessages[msg.templateId][category].push(msg);
+      }
     });
 
     res.json(allMessages);
@@ -56,52 +76,34 @@ router.get("/template/:templateId", async (req: any, res) => {
 
     if (isCustomTemplate) {
       // Fetch messages from custom_template_messages
-      let query = db
-        .select()
-        .from(customTemplateMessages)
-        .where(eq(customTemplateMessages.customTemplateId, templateId as any));
+      const conditions = [eq(customTemplateMessages.customTemplateId, templateId as any)];
 
-      if (category) {
-        query = query.where(
-          eq(customTemplateMessages.messageCategory, category as string)
-        );
+      if (isMessageCategory(category)) {
+        conditions.push(eq(customTemplateMessages.messageCategory, category));
       }
 
-      const rows = await (query as any);
+      const rows = await db
+        .select()
+        .from(customTemplateMessages)
+        .where(and(...conditions));
 
-      // Group by category
-      const grouped: Record<string, any[]> = { individual: [], team: [] };
-      rows.forEach((row: any) => {
-        if (!grouped[row.messageCategory]) {
-          grouped[row.messageCategory] = [];
-        }
-        grouped[row.messageCategory].push(row);
-      });
+      const grouped = groupMessagesByCategory(rows);
 
       return res.json({ ...grouped, source: "custom" });
     } else {
       // Fetch messages from message_templates (system defaults)
-      let query = db
-        .select()
-        .from(messageTemplates)
-        .where(eq(messageTemplates.templateId, templateId));
+      const conditions = [eq(messageTemplates.templateId, templateId)];
 
-      if (category) {
-        query = query.where(
-          eq(messageTemplates.messageCategory, category as string)
-        );
+      if (isMessageCategory(category)) {
+        conditions.push(eq(messageTemplates.messageCategory, category));
       }
 
-      const rows = await (query as any);
+      const rows = await db
+        .select()
+        .from(messageTemplates)
+        .where(and(...conditions));
 
-      // Group by category
-      const grouped: Record<string, any[]> = { individual: [], team: [] };
-      rows.forEach((row: any) => {
-        if (!grouped[row.messageCategory]) {
-          grouped[row.messageCategory] = [];
-        }
-        grouped[row.messageCategory].push(row);
-      });
+      const grouped = groupMessagesByCategory(rows);
 
       return res.json({ ...grouped, source: "system" });
     }
@@ -130,7 +132,7 @@ router.post("/", authenticate(), async (req: any, res) => {
     }
 
     const [user] = await db
-      .select({ id: users.id })
+      .select({ id: users.id, role: users.role })
       .from(users)
       .where(eq(users.email, userEmail))
       .limit(1);

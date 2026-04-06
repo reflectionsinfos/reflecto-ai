@@ -3,7 +3,6 @@ services:
     build:
       context: .
       dockerfile: apps/backend/Dockerfile
-    container_name: reflecto-backend-prod
     ports:
       - "4000:4000"
     extra_hosts:
@@ -19,11 +18,15 @@ services:
     build:
       context: .
       dockerfile: apps/frontend/Dockerfile
-    container_name: reflecto-frontend-prod
+      args:
+        NEXT_PUBLIC_API_URL: /api
     ports:
       - "3000:3000"
     env_file:
       - ./apps/frontend/.env.production
+    environment:
+      - NODE_ENV=production
+      - NEXT_PUBLIC_API_URL=/api
     depends_on:
       - backend
     restart: always
