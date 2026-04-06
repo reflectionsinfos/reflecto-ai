@@ -46,4 +46,28 @@ export class RecognitionService {
   static async getAllEvents() {
     return db.select().from(recognitionEvents);
   }
+
+  /**
+   * Get a single recognition event by ID
+   */
+  static async getEventById(id: string) {
+    const [event] = await db
+      .select()
+      .from(recognitionEvents)
+      .where(eq(recognitionEvents.id, id as any));
+
+    return event ?? null;
+  }
+
+  /**
+   * Delete a recognition event by ID
+   */
+  static async deleteEvent(id: string) {
+    const [deleted] = await db
+      .delete(recognitionEvents)
+      .where(eq(recognitionEvents.id, id as any))
+      .returning({ id: recognitionEvents.id });
+
+    return deleted ?? null;
+  }
 }

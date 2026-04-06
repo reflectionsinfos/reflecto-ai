@@ -1,6 +1,9 @@
 import { Router } from "express";
+import { eq } from "drizzle-orm";
 import { RecognitionService } from "../services/RecognitionService";
 import { authenticate } from "../middleware/auth";
+import { db } from "../db";
+import { users } from "../db/schema";
 
 const router = Router();
 
@@ -140,6 +143,71 @@ router.get("/", authenticate(), async (req: any, res) => {
   } catch (error) {
     console.error("Error fetching all recognitions:", error);
     res.status(500).json({ error: "Failed to fetch recognitions" });
+  }
+});
+
+/**
+ * @swagger
+ * /api/recognition/{id}:
+ *   delete:
+ *     summary: Delete a recognition event
+ *     description: Deletes a recognition event owned by the authenticated user. Admins can delete any recognition event.
+ *     tags:
+ *       - Recognition
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Recognition event deleted successfully
+ *       403:
+ *         description: Not authorized to delete this recognition
+ *       404:
+ *         description: Recognition event not found
+ *       500:
+ *         description: Failed to delete recognition
+ */
+router.delete("/:id", authenticate(), async (req: any, res) => {
+  try {
+    const userEmail = req.user?.email || req.user?.preferred_username;
+    const { id } = req.params;
+
+    if (!userEmail) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    const [user] = await db
+      .select({ id: users.id, role: users.role })
+      .from(users)
+      .where(eq(users.email, userEmail))
+      .limit(1);
+
+    if (!user) {
+      return res.status(401).json({ error: "User not found" });
+    }
+
+    const event = await RecognitionService.getEventById(id);
+    if (!event) {
+      return res.status(404).json({ error: "Recognition event not found" });
+    }
+
+    const isOwner = event.senderId === user.id;
+    const isAdmin = user.role === "admin";
+
+    if (!isOwner && !isAdmin) {
+      return res.status(403).json({ error: "Not authorized to delete this recognition" });
+    }
+
+    await RecognitionService.deleteEvent(id);
+    res.json({ success: true });
+  } catch (error) {
+    console.error("Error deleting recognition:", error);
+    res.status(500).json({ error: "Failed to delete recognition" });
   }
 });
 

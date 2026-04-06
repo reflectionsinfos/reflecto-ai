@@ -88,11 +88,11 @@ class CardStorageManager {
   }
 
   async deleteCard(cardId: string, deletedBy: { name: string; email: string }): Promise<boolean> {
-      // Need delete endpoint in backend
     try {
-      // await apiClient.delete(`/recognition/${cardId}`);
+      await apiClient.delete(`/recognition/${cardId}`);
       return true;
     } catch (error) {
+      console.error("Error deleting card:", error);
       return false;
     }
   }
