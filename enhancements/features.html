@@ -1,0 +1,1212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Reflecto-AI - Complete AI Feature Roadmap</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f4efe7;
+      --panel: rgba(255, 252, 247, 0.9);
+      --panel-strong: #fffdfa;
+      --text: #1f2937;
+      --muted: #5f6b7a;
+      --accent: #0f766e;
+      --accent-2: #b45309;
+      --border: rgba(31, 41, 55, 0.12);
+      --shadow: 0 20px 60px rgba(36, 33, 28, 0.12);
+      --code-bg: #f2f6f8;
+      --table-stripe: rgba(15, 118, 110, 0.045);
+    }
+
+    * { box-sizing: border-box; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      margin: 0;
+      font-family: "Segoe UI", "Inter", sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at top left, rgba(180, 83, 9, 0.14), transparent 28%),
+        radial-gradient(circle at top right, rgba(15, 118, 110, 0.12), transparent 24%),
+        linear-gradient(180deg, #f8f4ee 0%, var(--bg) 100%);
+      line-height: 1.7;
+    }
+
+    a { color: var(--accent); }
+
+    .shell {
+      width: min(1200px, calc(100% - 32px));
+      margin: 32px auto 56px;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      gap: 24px;
+    }
+
+    .hero {
+      background: linear-gradient(135deg, rgba(15, 118, 110, 0.96), rgba(17, 24, 39, 0.94));
+      color: #f8fafc;
+      border-radius: 28px;
+      padding: 32px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+      position: relative;
+    }
+
+    .hero::after {
+      content: "";
+      position: absolute;
+      inset: auto -60px -80px auto;
+      width: 220px;
+      height: 220px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(245, 158, 11, 0.28), transparent 68%);
+    }
+
+    .eyebrow {
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+      font-size: 0.78rem;
+      opacity: 0.76;
+      margin: 0 0 12px;
+    }
+
+    .hero h1 {
+      margin: 0;
+      font-size: clamp(2rem, 4vw, 3.6rem);
+      line-height: 1.05;
+      max-width: 12ch;
+    }
+
+    .hero p {
+      max-width: 70ch;
+      margin: 16px 0 0;
+      color: rgba(248, 250, 252, 0.84);
+      font-size: 1.02rem;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(0, 280px) minmax(0, 1fr);
+      gap: 24px;
+      align-items: start;
+    }
+
+    .toc, .content {
+      background: var(--panel);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      box-shadow: var(--shadow);
+    }
+
+    .toc {
+      padding: 22px 20px;
+      position: sticky;
+      top: 20px;
+    }
+
+    .toc h2 {
+      font-size: 0.95rem;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--muted);
+      margin: 0 0 16px;
+    }
+
+    .toc ul {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      display: grid;
+      gap: 10px;
+    }
+
+    .toc li { margin: 0; }
+
+    .toc a {
+      text-decoration: none;
+      color: var(--text);
+      display: block;
+      padding: 8px 10px;
+      border-radius: 12px;
+      transition: background-color 160ms ease, color 160ms ease, transform 160ms ease;
+    }
+
+    .toc a:hover {
+      background: rgba(15, 118, 110, 0.08);
+      color: var(--accent);
+      transform: translateX(2px);
+    }
+
+    .toc ul ul {
+      padding-left: 12px;
+      gap: 6px;
+      margin-top: 2px;
+      border-left: 1px solid rgba(95, 107, 122, 0.16);
+    }
+
+    .toc ul ul a {
+      font-size: 0.95rem;
+      color: var(--muted);
+      padding: 6px 10px;
+    }
+
+    .content {
+      padding: 28px;
+      overflow: hidden;
+    }
+
+    .content > *:first-child { margin-top: 0; }
+
+    .content h1,
+    .content h2,
+    .content h3 {
+      color: #111827;
+      line-height: 1.2;
+      scroll-margin-top: 28px;
+    }
+
+    .content h1 { font-size: 2rem; margin: 0 0 1rem; }
+    .content h2 {
+      margin-top: 2.3rem;
+      padding-top: 0.5rem;
+      font-size: 1.5rem;
+      border-top: 1px solid rgba(31, 41, 55, 0.08);
+    }
+    .content h3 { font-size: 1.14rem; margin-top: 1.5rem; }
+
+    .content p,
+    .content ul,
+    .content ol,
+    .content blockquote,
+    .content pre,
+    .content table { margin: 1rem 0; }
+
+    .content ul,
+    .content ol { padding-left: 1.35rem; }
+
+    .content li + li { margin-top: 0.32rem; }
+
+    .content blockquote {
+      margin-left: 0;
+      padding: 14px 18px;
+      border-left: 4px solid var(--accent-2);
+      background: rgba(180, 83, 9, 0.08);
+      color: #4b5563;
+      border-radius: 0 14px 14px 0;
+    }
+
+    .content hr {
+      border: 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(31, 41, 55, 0.16), transparent);
+      margin: 2rem 0;
+    }
+
+    .content code {
+      font-family: "Cascadia Code", "Consolas", monospace;
+      font-size: 0.92em;
+      background: var(--code-bg);
+      padding: 0.12rem 0.38rem;
+      border-radius: 8px;
+    }
+
+    .content pre {
+      padding: 16px 18px;
+      background: #10212a;
+      color: #e5edf4;
+      border-radius: 18px;
+      overflow-x: auto;
+    }
+
+    .content pre code {
+      background: transparent;
+      padding: 0;
+      color: inherit;
+    }
+
+    .content table {
+      width: 100%;
+      border-collapse: collapse;
+      display: block;
+      overflow-x: auto;
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      background: var(--panel-strong);
+    }
+
+    .content thead { background: rgba(15, 118, 110, 0.08); }
+    .content tbody tr:nth-child(even) { background: var(--table-stripe); }
+
+    .content th,
+    .content td {
+      padding: 12px 14px;
+      border-bottom: 1px solid rgba(31, 41, 55, 0.08);
+      text-align: left;
+      vertical-align: top;
+    }
+
+    .content strong { color: #0f172a; }
+
+    .footer-note {
+      color: var(--muted);
+      font-size: 0.92rem;
+      margin-top: 24px;
+    }
+
+    @media (max-width: 960px) {
+      .layout { grid-template-columns: 1fr; }
+      .toc { position: static; }
+    }
+
+    @media (max-width: 640px) {
+      .shell { width: min(100% - 20px, 1200px); margin: 18px auto 36px; gap: 16px; }
+      .hero, .content, .toc { border-radius: 20px; }
+      .hero, .content { padding: 22px; }
+      .toc { padding: 18px; }
+      .content h1 { font-size: 1.7rem; }
+      .content h2 { font-size: 1.28rem; }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <section class="hero">
+      <p class="eyebrow">Reflecto-AI Enhancements</p>
+      <h1>Reflecto-AI - Complete AI Feature Roadmap</h1>
+      <p>Standalone HTML render of <code>features.md</code>, generated from the Markdown source for easier browsing and sharing.</p>
+    </section>
+    <section class="layout">
+      <aside class="toc">
+        <h2>On This Page</h2>
+        <div class="toc">
+<ul>
+<li><a href="#reflecto-ai-complete-ai-feature-roadmap">Reflecto-AI — Complete AI Feature Roadmap</a><ul>
+<li><a href="#master-priority-matrix">Master Priority Matrix</a></li>
+</ul>
+</li>
+<li><a href="#part-a-multimodal-ceremony-experience">Part A — Multimodal Ceremony Experience</a><ul>
+<li><a href="#m1-smart-recognition-assistant">M1: Smart Recognition Assistant</a><ul>
+<li><a href="#proposal">Proposal</a></li>
+<li><a href="#recommendation-already-implemented-no-new-work-required">Recommendation: Already Implemented — No New Work Required</a></li>
+</ul>
+</li>
+<li><a href="#m2-ai-generated-digital-badges">M2: AI-Generated Digital Badges</a><ul>
+<li><a href="#what-it-is">What It Is</a></li>
+<li><a href="#recommendation-build-first-highest-multimodal-roi">Recommendation: Build First — Highest Multimodal ROI</a></li>
+<li><a href="#technical-correction">Technical Correction</a></li>
+<li><a href="#prompt-strategy">Prompt Strategy</a></li>
+<li><a href="#generation-flow">Generation Flow</a></li>
+<li><a href="#database-changes">Database Changes</a></li>
+<li><a href="#new-api-endpoints">New API Endpoints</a></li>
+<li><a href="#new-backend-service">New Backend Service</a></li>
+<li><a href="#frontend-additions">Frontend Additions</a></li>
+<li><a href="#cost-estimate">Cost Estimate</a></li>
+<li><a href="#effort-medium-35-days">Effort: Medium (3–5 days)</a></li>
+</ul>
+</li>
+<li><a href="#m3-personalized-achievement-soundtracks">M3: Personalized Achievement Soundtracks</a><ul>
+<li><a href="#what-it-is_1">What It Is</a></li>
+<li><a href="#recommendation-build-second-opt-in-strong-emotional-impact">Recommendation: Build Second — Opt-In, Strong Emotional Impact</a></li>
+<li><a href="#technical-stack">Technical Stack</a></li>
+<li><a href="#prompt-strategy_1">Prompt Strategy</a></li>
+<li><a href="#energy-mapping-by-award-type">Energy Mapping by Award Type</a></li>
+<li><a href="#generation-flow-async-same-pattern-as-badges">Generation Flow (Async — Same Pattern as Badges)</a></li>
+<li><a href="#database-changes_1">Database Changes</a></li>
+<li><a href="#new-api-endpoint">New API Endpoint</a></li>
+<li><a href="#ux-rules-non-negotiable">UX Rules (Non-Negotiable)</a></li>
+<li><a href="#cost-estimate_1">Cost Estimate</a></li>
+<li><a href="#effort-medium-35-days_1">Effort: Medium (3–5 days)</a></li>
+</ul>
+</li>
+<li><a href="#m4-cinematic-award-reveals">M4: Cinematic Award Reveals</a><ul>
+<li><a href="#what-it-is_2">What It Is</a></li>
+<li><a href="#recommendation-build-last-highest-impact-highest-complexity">Recommendation: Build Last — Highest Impact, Highest Complexity</a></li>
+<li><a href="#technical-stack_1">Technical Stack</a></li>
+<li><a href="#critical-architecture-rule-never-block-on-generation">Critical Architecture Rule: Never Block on Generation</a></li>
+<li><a href="#prompt-strategy_2">Prompt Strategy</a></li>
+<li><a href="#category-to-visual-mapping">Category-to-Visual Mapping</a></li>
+<li><a href="#database-changes_2">Database Changes</a></li>
+<li><a href="#new-endpoints">New Endpoints</a></li>
+<li><a href="#cost-mitigation-strategies">Cost Mitigation Strategies</a></li>
+<li><a href="#cost-estimate_2">Cost Estimate</a></li>
+<li><a href="#effort-high-12-weeks">Effort: High (1–2 weeks)</a></li>
+</ul>
+</li>
+<li><a href="#m5-sensory-achievement-celebration">M5: Sensory Achievement Celebration</a><ul>
+<li><a href="#what-it-is_3">What It Is</a></li>
+<li><a href="#recommendation-build-as-the-orchestration-layer-low-effort-high-ux-impact">Recommendation: Build as the Orchestration Layer — Low Effort, High UX Impact</a></li>
+<li><a href="#progressive-enhancement-levels">Progressive Enhancement Levels</a></li>
+<li><a href="#orchestration-api">Orchestration API</a></li>
+<li><a href="#frontend-celebration-sequence">Frontend Celebration Sequence</a></li>
+<li><a href="#database-change">Database Change</a></li>
+<li><a href="#effort-lowmedium-23-days">Effort: Low–Medium (2–3 days)</a></li>
+</ul>
+</li>
+<li><a href="#recommended-multimodal-build-sequence">Recommended Multimodal Build Sequence</a></li>
+<li><a href="#new-infrastructure-required-for-multimodal-features">New Infrastructure Required for Multimodal Features</a></li>
+<li><a href="#multimodal-cost-summary-per-tenant-500-eventsmonth">Multimodal Cost Summary (Per Tenant, 500 Events/Month)</a></li>
+</ul>
+</li>
+<li><a href="#part-b-ai-intelligence-engagement-features">Part B — AI Intelligence &amp; Engagement Features</a><ul>
+<li><a href="#a1-tone-sentiment-coach">A1: Tone &amp; Sentiment Coach</a></li>
+<li><a href="#a2-proactive-recognition-nudges">A2: Proactive Recognition Nudges</a></li>
+<li><a href="#a3-analytics-narrative-summary">A3: Analytics Narrative Summary</a></li>
+<li><a href="#a4-manager-weekly-digest">A4: Manager Weekly Digest</a></li>
+<li><a href="#a5-smart-template-auto-selection">A5: Smart Template Auto-Selection</a></li>
+<li><a href="#a6-auto-recipient-suggestion">A6: Auto-Recipient Suggestion</a></li>
+<li><a href="#a7-learning-path-auto-generation">A7: Learning Path Auto-Generation</a></li>
+<li><a href="#a8-recognition-gap-detection-hr-dashboard">A8: Recognition Gap Detection (HR Dashboard)</a></li>
+<li><a href="#a9-talent-intelligence-search">A9: Talent Intelligence Search</a></li>
+<li><a href="#a10-ai-powered-onboarding-assistant">A10: AI-Powered Onboarding Assistant</a></li>
+<li><a href="#recommended-combined-implementation-sequence">Recommended Combined Implementation Sequence</a></li>
+<li><a href="#technical-foundation-status">Technical Foundation Status</a></li>
+</ul>
+</li>
+</ul>
+</div>
+
+      </aside>
+      <article class="content">
+        <h1 id="reflecto-ai-complete-ai-feature-roadmap">Reflecto-AI — Complete AI Feature Roadmap</h1>
+<blockquote>
+<p>This document consolidates all planned and proposed AI enhancements into a single source of truth.
+It covers two categories: (A) Multimodal Ceremony Experience features, and (B) AI Intelligence &amp;
+Engagement features. Features are reviewed for feasibility, cost, effort, and priority.</p>
+</blockquote>
+<hr />
+<h2 id="master-priority-matrix">Master Priority Matrix</h2>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Feature</th>
+<th>Category</th>
+<th>Effort</th>
+<th>Priority</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>M1</td>
+<td>Smart Recognition Assistant</td>
+<td>Multimodal</td>
+<td>—</td>
+<td>—</td>
+<td><strong>Already Shipped</strong></td>
+</tr>
+<tr>
+<td>M2</td>
+<td>AI-Generated Digital Badges</td>
+<td>Multimodal</td>
+<td>Medium</td>
+<td><strong>High</strong></td>
+<td>Recommended next</td>
+</tr>
+<tr>
+<td>M3</td>
+<td>Personalized Achievement Soundtracks</td>
+<td>Multimodal</td>
+<td>Medium</td>
+<td>Medium</td>
+<td>After M2</td>
+</tr>
+<tr>
+<td>M4</td>
+<td>Cinematic Award Reveals</td>
+<td>Multimodal</td>
+<td>High</td>
+<td>Low-Medium</td>
+<td>After M3</td>
+</tr>
+<tr>
+<td>M5</td>
+<td>Sensory Achievement Celebration</td>
+<td>Multimodal</td>
+<td>Low</td>
+<td><strong>High</strong></td>
+<td>Depends on M2–M4</td>
+</tr>
+<tr>
+<td>A1</td>
+<td>Tone &amp; Sentiment Coach</td>
+<td>AI/UX</td>
+<td>Low</td>
+<td><strong>High</strong></td>
+<td>Quick Win</td>
+</tr>
+<tr>
+<td>A2</td>
+<td>Proactive Recognition Nudges</td>
+<td>AI/Engagement</td>
+<td>Medium</td>
+<td><strong>Very High</strong></td>
+<td>MVP2</td>
+</tr>
+<tr>
+<td>A3</td>
+<td>Analytics Narrative Summary</td>
+<td>AI/Insights</td>
+<td>Low</td>
+<td><strong>High</strong></td>
+<td>Quick Win</td>
+</tr>
+<tr>
+<td>A4</td>
+<td>Manager Weekly Digest</td>
+<td>AI/Retention</td>
+<td>Medium</td>
+<td>High</td>
+<td>MVP2</td>
+</tr>
+<tr>
+<td>A5</td>
+<td>Smart Template Auto-Selection</td>
+<td>AI/UX</td>
+<td>Low</td>
+<td>Medium</td>
+<td>Quick Win</td>
+</tr>
+<tr>
+<td>A6</td>
+<td>Auto-Recipient Suggestion</td>
+<td>AI/UX</td>
+<td>Medium</td>
+<td>High</td>
+<td>MVP2</td>
+</tr>
+<tr>
+<td>A7</td>
+<td>Learning Path Auto-Generation</td>
+<td>AI/Growth</td>
+<td>Medium</td>
+<td>High</td>
+<td>MVP3</td>
+</tr>
+<tr>
+<td>A8</td>
+<td>Recognition Gap Detection</td>
+<td>AI/HR Intel</td>
+<td>Medium</td>
+<td><strong>Very High</strong></td>
+<td>MVP3</td>
+</tr>
+<tr>
+<td>A9</td>
+<td>Talent Intelligence Search</td>
+<td>AI/Strategic</td>
+<td>High</td>
+<td><strong>Very High</strong></td>
+<td>MVP4</td>
+</tr>
+<tr>
+<td>A10</td>
+<td>AI-Powered Onboarding Assistant</td>
+<td>AI/Engagement</td>
+<td>Medium</td>
+<td>High</td>
+<td>MVP4</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h1 id="part-a-multimodal-ceremony-experience">Part A — Multimodal Ceremony Experience</h1>
+<hr />
+<h2 id="m1-smart-recognition-assistant">M1: Smart Recognition Assistant</h2>
+<h3 id="proposal">Proposal</h3>
+<p>AI helper that drafts polished recognition messages from a few notes, in the user&rsquo;s chosen tone.</p>
+<h3 id="recommendation-already-implemented-no-new-work-required">Recommendation: Already Implemented — No New Work Required</h3>
+<p>This feature is <strong>fully shipped</strong>. <code>AIAssistantService.generateMessage()</code> uses Gemini 2.0 Flash to
+generate tone-aware messages (Professional, Casual, Funny, Inspiring) for all three recognition
+types (Kudos, Shout Out, Spot Award) with character limits enforced at the prompt level.
+The <code>AiMessageAssistant</code> dialog component is live on the Kudos and Shout Out pages.</p>
+<p><strong>What to do instead:</strong>
+- Add a discoverable onboarding tooltip or empty-state prompt so first-time users find it
+- Wire it into Feature M5 (Sensory Celebration) as the message step
+- Update product docs to reflect this as a shipped, live capability</p>
+<p><strong>Current API:</strong> <code>POST /api/ai/generate-message</code>
+<strong>Current service:</strong> <code>apps/backend/src/services/AIAssistantService.ts</code></p>
+<hr />
+<h2 id="m2-ai-generated-digital-badges">M2: AI-Generated Digital Badges</h2>
+<h3 id="what-it-is">What It Is</h3>
+<p>Unique, one-of-a-kind digital badge artwork generated per recognition event — no two badges
+look identical. A permanent digital asset displayed on the recipient&rsquo;s profile.</p>
+<h3 id="recommendation-build-first-highest-multimodal-roi">Recommendation: Build First — Highest Multimodal ROI</h3>
+<p>Image generation is fast (~5–8s), cost-effective (~$0.03/image), and produces a persistent
+verifiable digital asset. Clear visual uniqueness, no latency UX problems, and works standalone
+without needing video or audio infrastructure.</p>
+<h3 id="technical-correction">Technical Correction</h3>
+<p>The proposal mentions &ldquo;Gemini 3 Flash Image&rdquo; — this model does not exist publicly. Correct options:</p>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Model</th>
+<th>Quality</th>
+<th>Latency</th>
+<th>Cost/image</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Recommended</strong></td>
+<td><strong>Imagen 3</strong> (Vertex AI)</td>
+<td>Highest</td>
+<td>~5–8s</td>
+<td>~$0.03–0.04</td>
+</tr>
+<tr>
+<td>Alternative</td>
+<td>Gemini 2.0 Flash (image gen mode)</td>
+<td>Good</td>
+<td>~3–6s</td>
+<td>Lower</td>
+</tr>
+</tbody>
+</table>
+<p>Imagen 3 is Google&rsquo;s purpose-built image model and produces higher quality results for detailed
+digital art than Gemini&rsquo;s image generation mode.</p>
+<h3 id="prompt-strategy">Prompt Strategy</h3>
+<pre><code>Generate a digital badge/trophy icon for a professional recognition award.
+Category: {category}  (e.g. &quot;Leadership&quot;, &quot;Innovation&quot;, &quot;Mentorship&quot;)
+Style: flat vector art, vibrant colors, clean and premium feel, 512x512
+Mood: {mood}  (e.g. energetic, prestigious, warm)
+Do not include any text. The icon should feel unique and collectible.
+</code></pre>
+<h3 id="generation-flow">Generation Flow</h3>
+<pre><code>Recognition event created (existing POST /api/recognition)
+        ↓
+Event saved to DB immediately — recipient notified instantly (no change to existing flow)
+        ↓
+Async badge generation job queued
+        ↓
+Imagen 3 API → PNG bytes
+        ↓
+Upload to Google Cloud Storage → public URL stored in recognitionEvents.badgeImageUrl
+        ↓
+Push notification to recipient: &quot;Your achievement badge is ready&quot;
+        ↓
+Badge displayed on recognition card + user profile badge gallery
+</code></pre>
+<h3 id="database-changes">Database Changes</h3>
+<pre><code class="language-sql">ALTER TABLE recognitionEvents ADD COLUMN badgeImageUrl TEXT;
+ALTER TABLE recognitionEvents ADD COLUMN badgeStatus TEXT DEFAULT 'pending';
+-- badgeStatus: pending | generating | ready | failed
+ALTER TABLE users ADD COLUMN badgeGallery JSONB DEFAULT '[]';
+</code></pre>
+<h3 id="new-api-endpoints">New API Endpoints</h3>
+<ul>
+<li><code>GET /api/recognition/:id/badge</code> — badge URL + status for a specific event</li>
+<li><code>GET /api/users/me/badges</code> — full badge gallery for current user profile</li>
+</ul>
+<h3 id="new-backend-service">New Backend Service</h3>
+<p><code>apps/backend/src/services/BadgeGenerationService.ts</code></p>
+<h3 id="frontend-additions">Frontend Additions</h3>
+<ul>
+<li>Badge gallery section on user profile page</li>
+<li>Badge image shown on received recognition card</li>
+<li>Animated scale/glow reveal on first view (CSS transition, no video required)</li>
+<li>&ldquo;Regenerate&rdquo; button (rate-limited: once per event)</li>
+</ul>
+<h3 id="cost-estimate">Cost Estimate</h3>
+<p>~$0.03/image × 500 events/month = <strong>~$15/month per tenant</strong></p>
+<h3 id="effort-medium-35-days">Effort: Medium (3–5 days)</h3>
+<hr />
+<h2 id="m3-personalized-achievement-soundtracks">M3: Personalized Achievement Soundtracks</h2>
+<h3 id="what-it-is_1">What It Is</h3>
+<p>A unique 30-second instrumental music track composed for each recognition event, matching the
+emotional tone of the award — energetic for a big win, inspiring for mentorship.</p>
+<h3 id="recommendation-build-second-opt-in-strong-emotional-impact">Recommendation: Build Second — Opt-In, Strong Emotional Impact</h3>
+<p>Music creates a uniquely powerful emotional response. The critical UX constraint: audio must
+<strong>never</strong> auto-play. In corporate environments, auto-playing audio is disruptive and inaccessible.
+Done as an explicit user-initiated action, this is a genuine differentiator.</p>
+<h3 id="technical-stack">Technical Stack</h3>
+<p><strong>Model:</strong> Lyria (Google DeepMind) via <strong>Vertex AI Music Generation API</strong></p>
+<pre><code class="language-typescript">import { VertexAI } from '@google-cloud/vertexai';
+const vertexAI = new VertexAI({ project: process.env.GCP_PROJECT_ID });
+// Lyria endpoint via Vertex AI media generation
+</code></pre>
+<h3 id="prompt-strategy_1">Prompt Strategy</h3>
+<pre><code>Generate a 30-second instrumental music track.
+Occasion: Employee recognition award — {category}
+Energy: {energy}  (e.g. &quot;high energy and celebratory&quot; | &quot;warm and inspiring&quot; | &quot;uplifting&quot;)
+Style: Modern, positive, no lyrics, suitable for office playback
+Format: MP3
+</code></pre>
+<h3 id="energy-mapping-by-award-type">Energy Mapping by Award Type</h3>
+<table>
+<thead>
+<tr>
+<th>Award / Category</th>
+<th>Energy</th>
+<th>Style</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Spot Award</td>
+<td>High</td>
+<td>Triumphant, percussive, fast tempo</td>
+</tr>
+<tr>
+<td>Kudos</td>
+<td>Medium</td>
+<td>Upbeat, warm, melodic</td>
+</tr>
+<tr>
+<td>Shout Out</td>
+<td>Medium-High</td>
+<td>Ensemble feel, celebratory</td>
+</tr>
+<tr>
+<td>Mentorship</td>
+<td>Low-Medium</td>
+<td>Inspiring, strings, building progression</td>
+</tr>
+<tr>
+<td>Innovation</td>
+<td>High</td>
+<td>Electronic, forward-moving, bright</td>
+</tr>
+<tr>
+<td>Leadership</td>
+<td>Medium</td>
+<td>Confident, orchestral, building</td>
+</tr>
+</tbody>
+</table>
+<h3 id="generation-flow-async-same-pattern-as-badges">Generation Flow (Async — Same Pattern as Badges)</h3>
+<pre><code>Recognition event created
+        ↓
+Async soundtrack job queued
+        ↓
+Lyria API → MP3 bytes
+        ↓
+Upload to GCS → URL stored in recognitionEvents.soundtrackUrl
+        ↓
+Available in recipient's celebration view as a play button
+</code></pre>
+<h3 id="database-changes_1">Database Changes</h3>
+<pre><code class="language-sql">ALTER TABLE recognitionEvents ADD COLUMN soundtrackUrl TEXT;
+ALTER TABLE recognitionEvents ADD COLUMN soundtrackStatus TEXT DEFAULT 'pending';
+</code></pre>
+<h3 id="new-api-endpoint">New API Endpoint</h3>
+<p><code>GET /api/recognition/:id/soundtrack</code></p>
+<h3 id="ux-rules-non-negotiable">UX Rules (Non-Negotiable)</h3>
+<ul>
+<li><strong>Never auto-play</strong> — always user-initiated via an explicit play button</li>
+<li>Show a waveform visualizer (static or animated) while playing</li>
+<li>Add a user preference toggle: &ldquo;Enable achievement soundtracks&rdquo; (default: off)</li>
+<li>Graceful fallback: if generation fails, recognition event is unaffected</li>
+</ul>
+<h3 id="cost-estimate_1">Cost Estimate</h3>
+<p>~$0.07/track × 500 events/month = <strong>~$35/month per tenant</strong>
+Consider making soundtracks an admin-enabled premium feature toggle per tenant.</p>
+<h3 id="effort-medium-35-days_1">Effort: Medium (3–5 days)</h3>
+<hr />
+<h2 id="m4-cinematic-award-reveals">M4: Cinematic Award Reveals</h2>
+<h3 id="what-it-is_2">What It Is</h3>
+<p>A 5-second AI-generated cinematic video that unveils the achievement, with visuals themed to
+the award category — created using Google&rsquo;s Veo video generation model.</p>
+<h3 id="recommendation-build-last-highest-impact-highest-complexity">Recommendation: Build Last — Highest Impact, Highest Complexity</h3>
+<p>This is the most visually impressive feature but comes with real engineering constraints:
+generation latency (45–120 seconds), cost (~$0.30/video), and storage. These are solvable,
+but require careful async architecture and a cost mitigation strategy before going live.</p>
+<h3 id="technical-stack_1">Technical Stack</h3>
+<p><strong>Model:</strong> <strong>Veo 3</strong> (Google DeepMind) via Google Cloud Vertex AI Video Generation API</p>
+<h3 id="critical-architecture-rule-never-block-on-generation">Critical Architecture Rule: Never Block on Generation</h3>
+<p>Veo 3 takes 45–120 seconds to generate. This must <strong>always</strong> be asynchronous:</p>
+<pre><code>User sends recognition → Event saved + recipient notified IMMEDIATELY (no change)
+                                 ↓
+                    Background job: generate_video(eventId, category)
+                                 ↓
+                         [45–120 seconds later]
+                                 ↓
+                    Veo 3 returns video → Upload to GCS
+                    recognitionEvents.videoUrl set, videoStatus = 'ready'
+                                 ↓
+                    WebSocket/SSE push: &quot;Your cinematic reveal is ready&quot;
+                                 ↓
+                    Recipient opens celebration view — video plays
+</code></pre>
+<h3 id="prompt-strategy_2">Prompt Strategy</h3>
+<pre><code>Create a 5-second cinematic reveal video for a professional achievement.
+Theme: {category}  (e.g. &quot;Leadership&quot;, &quot;Innovation&quot;, &quot;Teamwork&quot;)
+Style: Cinematic, high-definition, abstract or symbolic visuals — no people, no text, no logos
+Mood: {mood} — triumphant / inspiring / energetic / warm
+End frame: Subtle sparkle or glow effect suitable for text overlay
+</code></pre>
+<h3 id="category-to-visual-mapping">Category-to-Visual Mapping</h3>
+<table>
+<thead>
+<tr>
+<th>Category</th>
+<th>Suggested Visual</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Leadership</td>
+<td>Rising sun, mountain peak, compass</td>
+</tr>
+<tr>
+<td>Innovation</td>
+<td>Circuit patterns, light beams, geometric morphing</td>
+</tr>
+<tr>
+<td>Teamwork</td>
+<td>Interlocking shapes, synchronized movement</td>
+</tr>
+<tr>
+<td>Mentorship</td>
+<td>Candle flame, growing plant, passing of light</td>
+</tr>
+<tr>
+<td>Excellence</td>
+<td>Gold particle burst, podium illumination</td>
+</tr>
+<tr>
+<td>Customer Focus</td>
+<td>Ripple effect, bridge, expanding circles</td>
+</tr>
+</tbody>
+</table>
+<h3 id="database-changes_2">Database Changes</h3>
+<pre><code class="language-sql">ALTER TABLE recognitionEvents ADD COLUMN videoUrl TEXT;
+ALTER TABLE recognitionEvents ADD COLUMN videoStatus TEXT DEFAULT 'pending';
+-- videoStatus: pending | generating | ready | failed
+</code></pre>
+<h3 id="new-endpoints">New Endpoints</h3>
+<ul>
+<li><code>GET /api/recognition/:id/video-status</code> — polled by frontend</li>
+<li>Webhook receiver from Veo API on completion</li>
+</ul>
+<h3 id="cost-mitigation-strategies">Cost Mitigation Strategies</h3>
+<ol>
+<li><strong>Category-level caching:</strong> Generate 3–5 video variants per award category monthly.
+   Assign randomly per event. Reduces cost by ~80%.</li>
+<li><strong>Admin toggle:</strong> Video reveals off by default; admins enable per tenant.</li>
+<li><strong>Budget cap:</strong> GCP billing alerts at $X/month per tenant; auto-disable if exceeded.</li>
+</ol>
+<h3 id="cost-estimate_2">Cost Estimate</h3>
+<p>~$0.06/event (with caching) × 500 events/month = <strong>~$30/month per tenant (cached)</strong>
+Without caching: ~$150/month — requires the caching strategy before launch.</p>
+<h3 id="effort-high-12-weeks">Effort: High (1–2 weeks)</h3>
+<p>Vertex AI Veo 3 integration, async polling, video storage + CDN, WebSocket notification, admin toggle.</p>
+<hr />
+<h2 id="m5-sensory-achievement-celebration">M5: Sensory Achievement Celebration</h2>
+<h3 id="what-it-is_3">What It Is</h3>
+<p>A synchronized full-screen experience that plays the video, music, and recognition message
+together when the recipient first opens a new award.</p>
+<h3 id="recommendation-build-as-the-orchestration-layer-low-effort-high-ux-impact">Recommendation: Build as the Orchestration Layer — Low Effort, High UX Impact</h3>
+<p>This is not a standalone AI feature — it is the <strong>presentation layer</strong> tying M2, M3, and M4 together.
+Build it progressively: it enhances with each asset that becomes available.</p>
+<h3 id="progressive-enhancement-levels">Progressive Enhancement Levels</h3>
+<pre><code>Level 1 (Today):         Badge placeholder + message + confetti animation
+Level 2 (After M2):      Unique AI badge reveal + message + confetti
+Level 3 (After M3):      AI badge + audio play button + message + confetti
+Level 4 (After M4):      Full cinematic video + audio + AI badge + message
+</code></pre>
+<h3 id="orchestration-api">Orchestration API</h3>
+<p><strong>New endpoint:</strong> <code>GET /api/recognition/:id/celebration</code></p>
+<pre><code class="language-typescript">async function buildCelebrationPayload(eventId: string) {
+  const event = await getRecognitionEvent(eventId);
+  return {
+    message: event.message,
+    senderName: event.senderName,
+    category: event.category,
+    badgeUrl: event.badgeImageUrl ?? null,
+    soundtrackUrl: event.soundtrackUrl ?? null,
+    videoUrl: event.videoStatus === 'ready' ? event.videoUrl : null,
+    confetti: true,
+  };
+}
+</code></pre>
+<h3 id="frontend-celebration-sequence">Frontend Celebration Sequence</h3>
+<pre><code>Page /dashboard/recognition/:id/celebrate loads
+         ↓
+If videoUrl exists → play full-screen video (muted)
+Else              → fade-in category gradient background
+         ↓
+At 3s mark (or video end):
+    AI badge appears with scale + glow animation
+         ↓
+    Sender name + message text (typewriter effect)
+         ↓
+    &quot;Play your soundtrack&quot; button appears (if soundtrackUrl exists)
+         ↓
+    Confetti burst
+         ↓
+    Share to profile / Download badge / Done CTAs
+</code></pre>
+<h3 id="database-change">Database Change</h3>
+<pre><code class="language-sql">ALTER TABLE recognitionEvents ADD COLUMN celebrationViewedAt TIMESTAMP;
+-- Ensures the full-screen experience only triggers once
+</code></pre>
+<h3 id="effort-lowmedium-23-days">Effort: Low–Medium (2–3 days)</h3>
+<hr />
+<h2 id="recommended-multimodal-build-sequence">Recommended Multimodal Build Sequence</h2>
+<pre><code>Phase 0 — No Code (This Week)
+└── M1: Make Smart Recognition Assistant discoverable via UI tooltip/onboarding
+
+Phase 1 — Visual Foundation (Weeks 1–2)
+├── M2: AI-Generated Digital Badges (Imagen 3)
+└── M5: Celebration Layer 2 (badge reveal + confetti)
+
+Phase 2 — Audio Layer (Weeks 3–4)
+├── M3: Personalized Achievement Soundtracks (Lyria)
+└── M5: Celebration Layer 3 (add audio play button)
+
+Phase 3 — Cinematic Layer (Weeks 5–7)
+├── M4: Cinematic Award Reveals (Veo 3, with category caching)
+└── M5: Celebration Layer 4 (full orchestrated experience)
+</code></pre>
+<hr />
+<h2 id="new-infrastructure-required-for-multimodal-features">New Infrastructure Required for Multimodal Features</h2>
+<table>
+<thead>
+<tr>
+<th>Component</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Google Cloud Vertex AI</td>
+<td>Imagen 3 (badges), Lyria (audio), Veo 3 (video)</td>
+</tr>
+<tr>
+<td>Google Cloud Storage bucket</td>
+<td>Persist generated images, audio, video</td>
+</tr>
+<tr>
+<td>CDN (GCS public URLs or Cloud CDN)</td>
+<td>Fast asset delivery globally</td>
+</tr>
+<tr>
+<td>Async job queue</td>
+<td>Non-blocking generation (BullMQ on Redis, or DB-backed queue)</td>
+</tr>
+<tr>
+<td>WebSocket or Server-Sent Events</td>
+<td>Notify frontend when async assets are ready</td>
+</tr>
+<tr>
+<td>GCP billing alerts</td>
+<td>Cost monitoring per tenant</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="multimodal-cost-summary-per-tenant-500-eventsmonth">Multimodal Cost Summary (Per Tenant, 500 Events/Month)</h2>
+<table>
+<thead>
+<tr>
+<th>Feature</th>
+<th>Model</th>
+<th>Cost/Event</th>
+<th>Monthly</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Digital Badges</td>
+<td>Imagen 3</td>
+<td>~$0.03</td>
+<td>~$15</td>
+</tr>
+<tr>
+<td>Soundtracks</td>
+<td>Lyria</td>
+<td>~$0.07</td>
+<td>~$35</td>
+</tr>
+<tr>
+<td>Cinematic Reveals (cached)</td>
+<td>Veo 3</td>
+<td>~$0.06</td>
+<td>~$30</td>
+</tr>
+<tr>
+<td>Recognition Messages</td>
+<td>Gemini 2.0 Flash</td>
+<td>~$0.001</td>
+<td>~$0.50</td>
+</tr>
+<tr>
+<td><strong>Total multimodal</strong></td>
+<td></td>
+<td></td>
+<td><strong>~$80/month</strong></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<hr />
+<h1 id="part-b-ai-intelligence-engagement-features">Part B — AI Intelligence &amp; Engagement Features</h1>
+<blockquote>
+<p>Originally documented in <code>ai-features-roadmap.md</code>. Reproduced and integrated here for completeness.</p>
+</blockquote>
+<hr />
+<h2 id="a1-tone-sentiment-coach">A1: Tone &amp; Sentiment Coach</h2>
+<p><strong>What it does:</strong>
+As a user types a Kudos or Shout Out message, AI analyses the text in real time and provides a
+quality score with actionable suggestions — without blocking the submit flow.</p>
+<p><strong>User experience:</strong>
+- Small indicator below the message box: <em>&ldquo;Generic — try mentioning a specific behaviour or project&rdquo;</em>
+- Updates as the message improves; shows &ldquo;Looks great!&rdquo; when specific and warm</p>
+<p><strong>Why it matters:</strong>
+Generic recognition (&ldquo;Good job!&rdquo;) has low psychological impact. This nudges users toward meaningful,
+specific messages without forcing them.</p>
+<p><strong>Implementation:</strong>
+- Debounced Gemini call after 500ms inactivity
+- Prompt: <em>&ldquo;Rate this recognition message for specificity and warmth 1–3. Return JSON: { score, feedback }&rdquo;</em>
+- New endpoint: <code>POST /api/ai/message-coach</code>
+- Frontend: inline feedback below Textarea on Kudos and Shout Out pages</p>
+<p><strong>Effort:</strong> Low | <strong>Priority:</strong> High (Quick Win)</p>
+<hr />
+<h2 id="a2-proactive-recognition-nudges">A2: Proactive Recognition Nudges</h2>
+<p><strong>What it does:</strong>
+Monitors Azure AD signals (work anniversaries, role changes) and recognition history (time since
+last kudos sent/received) and surfaces timely nudges on the dashboard.</p>
+<p><strong>User experience:</strong>
+- Dashboard card: <em>&ldquo;John&rsquo;s 3-year anniversary is tomorrow — send a kudos?&rdquo;</em>
+- One-click pre-fills the Kudos form with recipient and a suggested message
+- Dismissable per suggestion</p>
+<p><strong>Why it matters:</strong>
+Most employees intend to recognise colleagues but forget. This converts intent into action.</p>
+<p><strong>Implementation:</strong>
+- Azure AD <code>GET /users/{id}</code> — pulls <code>hireDate</code>, <code>birthday</code> (if org populates them)
+- On-login check + optional cron job
+- New DB table: <code>recognitionNudges (id, userId, recipientId, triggerType, message, dismissedAt, sentAt)</code>
+- New endpoints: <code>GET /api/nudges</code>, <code>POST /api/nudges/:id/dismiss</code></p>
+<p><strong>Effort:</strong> Medium | <strong>Priority:</strong> Very High</p>
+<hr />
+<h2 id="a3-analytics-narrative-summary">A3: Analytics Narrative Summary</h2>
+<p><strong>What it does:</strong>
+Instead of raw charts, AI generates a plain-English paragraph summarising recognition trends for
+the current period, with anomalies and suggested actions.</p>
+<p><strong>Example output:</strong></p>
+<blockquote>
+<p><em>&ldquo;Recognition was down 18% this month. Engineering sent the most kudos (12); Sales sent none.
+4 employees have not received recognition in 60+ days — consider reaching out.&rdquo;</em></p>
+</blockquote>
+<p><strong>Implementation:</strong>
+- Aggregate stats from <code>recognitionEvents</code> table
+- Pass stats JSON to Gemini: <em>&ldquo;Summarise for an HR manager in 3–4 sentences. Highlight concerns.&rdquo;</em>
+- Cache result 24 hours
+- New endpoint: <code>GET /api/analytics/narrative</code>
+- Frontend: summary card above charts on Analytics page</p>
+<p><strong>Effort:</strong> Low | <strong>Priority:</strong> High (Quick Win)</p>
+<hr />
+<h2 id="a4-manager-weekly-digest">A4: Manager Weekly Digest</h2>
+<p><strong>What it does:</strong>
+Every Monday, managers receive an in-app notification with an AI-generated summary of their team&rsquo;s
+recognition activity from the past week, including missed recognition opportunities.</p>
+<p><strong>Example output:</strong></p>
+<blockquote>
+<p><em>&ldquo;This week: 3 kudos sent by your team, 5 received. Sarah hasn&rsquo;t been recognised in 45 days —
+she shipped the auth module last week. Tap to send a kudos.&rdquo;</em></p>
+</blockquote>
+<p><strong>Implementation:</strong>
+- Cron job (Monday 9am) per manager
+- Pull team recognition data + Azure AD org chart
+- Gemini generates personalised digest copy
+- New DB table: <code>managerDigests (id, managerId, weekOf, content, readAt)</code>
+- New endpoints: <code>GET /api/digests/latest</code>
+- Optional: SendGrid/SMTP email delivery</p>
+<p><strong>Effort:</strong> Medium | <strong>Priority:</strong> High</p>
+<hr />
+<h2 id="a5-smart-template-auto-selection">A5: Smart Template Auto-Selection</h2>
+<p><strong>What it does:</strong>
+As a user starts typing a message, AI silently detects intent and auto-switches to the most
+appropriate card template and category.</p>
+<p><strong>Example:</strong>
+- User types: <em>&ldquo;Congrats on completing the AWS certification!&rdquo;</em>
+- Template switches to &ldquo;Learning &amp; Growth&rdquo;, toast: <em>&ldquo;Switched to Learning template&rdquo;</em>
+- User can override manually</p>
+<p><strong>Implementation:</strong>
+- Debounced Gemini call: <em>&ldquo;Classify this message. Return JSON: { templateId, category, confidence }&rdquo;</em>
+- Auto-switch only if confidence &gt; 0.8
+- New endpoint: <code>POST /api/ai/classify-message</code></p>
+<p><strong>Effort:</strong> Low | <strong>Priority:</strong> Medium</p>
+<hr />
+<h2 id="a6-auto-recipient-suggestion">A6: Auto-Recipient Suggestion</h2>
+<p><strong>What it does:</strong>
+When a user types a Shout Out headline, AI suggests relevant recipients by cross-referencing Azure
+AD departments, job titles, and recent activity patterns.</p>
+<p><strong>Example:</strong>
+- User types: <em>&ldquo;Amazing work on the Q3 product launch!&rdquo;</em>
+- AI suggests: <em>&ldquo;Add the Product team? (8 members)&rdquo;</em></p>
+<p><strong>Implementation:</strong>
+- Extract keywords from message via Gemini
+- Match against Azure AD department names, job titles, group memberships
+- Frontend: suggestion chip below recipient field</p>
+<p><strong>Effort:</strong> Medium | <strong>Priority:</strong> High</p>
+<hr />
+<h2 id="a7-learning-path-auto-generation">A7: Learning Path Auto-Generation</h2>
+<p><strong>What it does:</strong>
+An employee inputs a plain-English goal and AI generates a complete Tech Growth Plan — phases,
+lesson recommendations, milestones, and timelines — for manager review and approval.</p>
+<p><strong>Example:</strong>
+- Input: <em>&ldquo;Become a senior cloud engineer in 12 months&rdquo;</em>
+- Output: Structured 12-month plan with phases, recommended lesson topics, monthly checkpoints</p>
+<p><strong>Implementation:</strong>
+- Gemini prompt returns structured JSON plan
+- Maps recommended topics to existing <code>learningContent</code> records
+- New endpoint: <code>POST /api/learning/generate-plan</code>
+- Frontend: &ldquo;Generate with AI&rdquo; button on Tech Growth Plan page
+- Syncs to existing <code>userLearningProfiles</code> approval workflow</p>
+<p><strong>Effort:</strong> Medium | <strong>Priority:</strong> High</p>
+<hr />
+<h2 id="a8-recognition-gap-detection-hr-dashboard">A8: Recognition Gap Detection (HR Dashboard)</h2>
+<p><strong>What it does:</strong>
+AI continuously analyses recognition patterns and surfaces equity and engagement risks to HR admins.</p>
+<p><strong>Insights surfaced:</strong>
+- Teams with zero recognition in N days
+- Individuals who send a lot but receive little (or vice versa)
+- Recognition concentration (e.g. 80% of kudos going to 20% of people)
+- Month-over-month anomalies
+- Remote vs. in-office recognition disparity</p>
+<p><strong>Implementation:</strong>
+- Aggregate queries on <code>recognitionEvents</code>
+- Gemini interprets stats and generates insight copy + recommended action
+- New endpoint: <code>GET /api/analytics/insights</code> (admin-only)
+- Frontend: new Insights tab on Analytics page; exportable PDF report</p>
+<p><strong>Effort:</strong> Medium | <strong>Priority:</strong> Very High</p>
+<hr />
+<h2 id="a9-talent-intelligence-search">A9: Talent Intelligence Search</h2>
+<p><strong>What it does:</strong>
+Natural language search that lets managers and HR find employees by skills, certifications,
+project history, or availability — pulling from Azure AD and Tech Growth Plan data.</p>
+<p><strong>Example queries:</strong>
+- <em>&ldquo;Who in Engineering has Kubernetes experience and is available for a new project?&rdquo;</em>
+- <em>&ldquo;Find someone with Python expertise who completed a data science course recently&rdquo;</em></p>
+<p><strong>Implementation:</strong>
+- Azure AD <code>GET /users?$select=skills,jobTitle,department</code>
+- Tech Growth data from <code>userLearningProfiles</code> + <code>learningContent</code>
+- Gemini extracts intent and entities from natural language query
+- Filter/rank Azure AD results against extracted criteria
+- New endpoint: <code>POST /api/talent/search</code>
+- New page: <code>/dashboard/talent-search</code> (sidebar Intelligence section re-enabled)</p>
+<p><strong>Effort:</strong> High | <strong>Priority:</strong> Very High</p>
+<hr />
+<h2 id="a10-ai-powered-onboarding-assistant">A10: AI-Powered Onboarding Assistant</h2>
+<p><strong>What it does:</strong>
+New employees get a conversational AI guide for their first 30/60/90 days — answering questions,
+suggesting who to connect with, recommending learning content, and prompting them to introduce
+themselves via a Shout Out.</p>
+<p><strong>Example:</strong></p>
+<blockquote>
+<p><em>&ldquo;Hi Alex! Welcome to Acme Corp. I see you&rsquo;re in Engineering. Want me to suggest 3 people to
+connect with this week?&rdquo;</em></p>
+</blockquote>
+<p><strong>Implementation:</strong>
+- Track account creation via Azure AD <code>createdDateTime</code>; show to users &lt; 90 days old
+- Gemini-powered chat with org context in system prompt
+- Conversation history in new <code>onboardingChats</code> table
+- Frontend: floating chat widget (auto-hides after 90 days)</p>
+<p><strong>Effort:</strong> Medium | <strong>Priority:</strong> High</p>
+<hr />
+<h2 id="recommended-combined-implementation-sequence">Recommended Combined Implementation Sequence</h2>
+<pre><code>Phase 0 — No Code (This Week)
+└── M1: Improve discoverability of Smart Recognition Assistant (tooltip/onboarding)
+
+Phase A — Quick Wins (Weeks 1–3)
+├── A1: Tone &amp; Sentiment Coach
+├── A3: Analytics Narrative Summary
+└── A5: Smart Template Auto-Selection
+
+Phase B — Multimodal Foundation + Engagement (Weeks 4–7)
+├── M2: AI-Generated Digital Badges (Imagen 3)
+├── M5: Celebration Layer 2 (badge reveal + confetti)
+├── A2: Proactive Recognition Nudges
+├── A4: Manager Weekly Digest
+└── A6: Auto-Recipient Suggestion
+
+Phase C — Audio + Learning Intelligence (Weeks 8–11)
+├── M3: Personalized Achievement Soundtracks (Lyria)
+├── M5: Celebration Layer 3 (audio)
+├── A7: Learning Path Auto-Generation
+└── A8: Recognition Gap Detection
+
+Phase D — Cinematic + Strategic (Weeks 12–16)
+├── M4: Cinematic Award Reveals (Veo 3)
+├── M5: Celebration Layer 4 (full experience)
+├── A9: Talent Intelligence Search
+└── A10: AI Onboarding Assistant
+</code></pre>
+<hr />
+<h2 id="technical-foundation-status">Technical Foundation Status</h2>
+<table>
+<thead>
+<tr>
+<th>Requirement</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Gemini API integration</td>
+<td>✅ Done</td>
+</tr>
+<tr>
+<td>Azure AD / Graph API</td>
+<td>✅ Done</td>
+</tr>
+<tr>
+<td>PostgreSQL + Drizzle ORM</td>
+<td>✅ Done</td>
+</tr>
+<tr>
+<td>Recognition event data store</td>
+<td>✅ Done</td>
+</tr>
+<tr>
+<td>Tech Growth Plan data store</td>
+<td>✅ Done</td>
+</tr>
+<tr>
+<td>Google Cloud Vertex AI (Imagen 3, Lyria, Veo 3)</td>
+<td>❌ Not yet set up</td>
+</tr>
+<tr>
+<td>Google Cloud Storage (media assets)</td>
+<td>❌ Not yet set up</td>
+</tr>
+<tr>
+<td>Async job queue (BullMQ / DB-backed)</td>
+<td>❌ Not yet set up</td>
+</tr>
+<tr>
+<td>WebSocket / SSE (async asset notifications)</td>
+<td>❌ Not yet set up</td>
+</tr>
+<tr>
+<td>Cron job runner (digests, nudges)</td>
+<td>❌ Not yet set up</td>
+</tr>
+<tr>
+<td>Email delivery (digests)</td>
+<td>❌ Not yet set up</td>
+</tr>
+<tr>
+<td>Azure AD HR fields (hireDate, skills)</td>
+<td>⚠️ Depends on org&rsquo;s AD population</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<p><em>Document created: April 2026</em>
+<em>Author: Reflecto-AI Engineering</em>
+<em>Supersedes: <code>ai-features-roadmap.md</code> (text/LLM features now consolidated here)</em></p>
+        <p class="footer-note">Generated from <code>features.md</code>.</p>
+      </article>
+    </section>
+  </main>
+</body>
+</html>
