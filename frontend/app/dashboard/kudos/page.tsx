@@ -1,0 +1,1310 @@
+"use client"
+
+import type React from "react"
+import { useState, useEffect } from "react"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
+import { Card, CardContent } from "@/components/ui/card"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import {
+  Upload,
+  X,
+  Download,
+  Award,
+  Users,
+  Zap,
+  TrendingUp,
+  Handshake,
+  Target,
+  AlertTriangle,
+  CheckCircle,
+  Sparkles,
+  Plus,
+  Star,
+  Trophy,
+  Rocket,
+  Brain,
+  Heart,
+  Flame,
+  Shield,
+  Crown,
+  Lightbulb,
+  ThumbsUp,
+  Medal,
+  Loader2,
+  Crop,
+} from "lucide-react"
+import { apiClient } from "@/lib/api-client"
+import { generateKudosCard, generateKudosCardToCanvas } from "@/lib/image-generator"
+import { logToGoogleSheets } from "@/lib/google-sheets"
+import { useToast } from "@/hooks/use-toast"
+import { useAuth, User } from "@/hooks/use-auth" // Use new hook
+import { cardStorage, type StoredCard } from "@/lib/card-storage"
+
+import { RecipientSelector } from "@/components/recipient-selector"
+import type { GraphUser } from "@/lib/graph-service"
+import { AiMessageAssistant } from "@/components/ai-message-assistant"
+import { ImageCropperDialog } from "@/components/image-cropper-dialog"
+
+// ── Custom Template types & constants ────────────────────────────────────────
+
+interface SavedCustomTemplate {
+  id: string
+  name: string
+  tagline: string | null
+  color: string    // e.g. "blue"
+  iconName: string // e.g. "Star"
+  isPublic: boolean
+  createdBy: string
+  createdAt: string
+  backgroundImageBlob?: string | null  // NEW: Base64-encoded background image
+}
+
+const CUSTOM_ICON_MAP: Record<string, React.ElementType> = {
+  Star, Trophy, Rocket, Brain, Heart, Flame, Shield, Crown, Lightbulb, ThumbsUp, Medal, Sparkles,
+}
+
+const CUSTOM_COLORS = [
+  { name: "blue",    bg: "bg-blue-500",    ring: "ring-blue-500" },
+  { name: "purple",  bg: "bg-purple-500",  ring: "ring-purple-500" },
+  { name: "emerald", bg: "bg-emerald-500", ring: "ring-emerald-500" },
+  { name: "orange",  bg: "bg-orange-500",  ring: "ring-orange-500" },
+  { name: "red",     bg: "bg-red-500",     ring: "ring-red-500" },
+  { name: "teal",    bg: "bg-teal-500",    ring: "ring-teal-500" },
+  { name: "pink",    bg: "bg-pink-500",    ring: "ring-pink-500" },
+  { name: "indigo",  bg: "bg-indigo-500",  ring: "ring-indigo-500" },
+]
+
+/** Converts a SavedCustomTemplate from the DB into a template object compatible with the rest of the form */
+function toTemplateObj(t: SavedCustomTemplate) {
+  return {
+    id: t.id,
+    name: t.name,
+    description: t.tagline || "A custom recognition award",
+    color: `bg-${t.color}-500`,
+    gradient: `from-${t.color}-500 to-${t.color}-700`,
+    icon: CUSTOM_ICON_MAP[t.iconName] ?? Star,
+    backgroundImageBlob: t.backgroundImageBlob || null,
+    logoBlob: null, // Will use system logo (to be added)
+    _isCustom: true as const,
+    _savedId: t.id,
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+const templates = [
+  {
+    id: "customer-centricity",
+    name: "Customer Centricity",
+    description: "Putting customers at the heart of everything we do",
+    color: "bg-blue-500",
+    gradient: "from-blue-500 to-blue-600",
+    icon: Users,
+  },
+  {
+    id: "agility",
+    name: "Agility",
+    description: "Adapting quickly to change and new opportunities",
+    color: "bg-purple-500",
+    gradient: "from-purple-500 to-purple-600",
+    icon: Zap,
+  },
+  {
+    id: "continuous-improvement",
+    name: "Continuous Improvement",
+    description: "Always striving to be better than yesterday",
+    color: "bg-emerald-500",
+    gradient: "from-emerald-500 to-emerald-600",
+    icon: TrendingUp,
+  },
+  {
+    id: "collaboration",
+    name: "Collaboration",
+    description: "Working together to achieve extraordinary results",
+    color: "bg-orange-500",
+    gradient: "from-orange-500 to-orange-600",
+    icon: Handshake,
+  },
+  {
+    id: "accountability",
+    name: "Accountability",
+    description: "Taking ownership and delivering on our commitments",
+    color: "bg-red-500",
+    gradient: "from-red-500 to-red-600",
+    icon: Target,
+  },
+]
+
+// Message templates cache (fetched from API)
+interface MessagesCache {
+  [templateId: string]: {
+    individual: string[]
+    team: string[]
+  }
+}
+
+export default function DashboardPage() {
+  const { toast } = useToast()
+  const { user } = useAuth() // Get user from hook
+
+  const [selectedTemplate, setSelectedTemplate] = useState<any>(templates[0])
+  
+  const [formData, setFormData] = useState({
+    recipientType: "individual" as "individual" | "team",
+    // recipients stores the Graph User objects
+    recipients: [] as GraphUser[],
+    // recipientName is what's displayed on the card (computed or manual override if we allowed it)
+    recipientName: "",
+    message: "",
+    creatorName: "",
+    // images array for team or individual
+    images: [] as File[],
+    // legacy field for simple checks, syncs with images[0]
+    image: null as File | null,
+  })
+
+  const [isGenerating, setIsGenerating] = useState(false)
+  const [showFullScreenPreview, setShowFullScreenPreview] = useState(false) 
+  const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null)
+  const [isPreviewLoading, setIsPreviewLoading] = useState(false)
+  const [errors, setErrors] = useState<Record<string, string>>({})
+
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false)
+  const [pendingTemplate, setPendingTemplate] = useState<any | null>(null)
+
+  const [showSuccessModal, setShowSuccessModal] = useState(false)
+  const [generatedCardData, setGeneratedCardData] = useState<any>(null)
+
+  const [cropQueue, setCropQueue] = useState<{ index: number, url: string }[]>([])
+
+  // ── Custom Template state ─────────────────────────────────────────────────
+  const [savedCustomTemplates, setSavedCustomTemplates] = useState<SavedCustomTemplate[]>([])
+  const [showCustomDialog, setShowCustomDialog] = useState(false)
+  const [isSavingTemplate, setIsSavingTemplate] = useState(false)
+  const [customForm, setCustomForm] = useState({
+    name: "",
+    tagline: "",
+    color: "blue",
+    iconName: "Star",
+    backgroundImageBlob: null as string | null,
+    backgroundImagePreview: null as string | null,
+  })
+  const [customFormErrors, setCustomFormErrors] = useState<Record<string, string>>({})
+  const [deletingTemplateId, setDeletingTemplateId] = useState<string | null>(null)
+
+  // ── Message templates cache ───────────────────────────────────────────────
+  const [messagesCache, setMessagesCache] = useState<MessagesCache>({})
+  const [loadingMessages, setLoadingMessages] = useState(false)
+  // ─────────────────────────────────────────────────────────────────────────
+
+  // Sync creator name when user loads
+  useEffect(() => {
+    if (user) {
+      setFormData((prev) => ({ ...prev, creatorName: user.email || user.name || "" }))
+    }
+  }, [user])
+
+  // Fetch saved custom templates after auth resolves
+  useEffect(() => {
+    if (!user) return
+    apiClient.get<SavedCustomTemplate[]>("/custom-templates")
+      .then((rows) => setSavedCustomTemplates(rows))
+      .catch(() => { /* non-critical — silently ignore */ })
+  }, [user])
+
+  // Fetch messages for all templates (system defaults + custom templates)
+  useEffect(() => {
+    if (!user) return
+
+    setLoadingMessages(true)
+    const fetchAllMessages = async () => {
+      try {
+        // Fetch all system template messages in ONE call (batch endpoint - much more efficient!)
+        const res = await fetch(`/api/messages/all`)
+        const data = await res.json()
+
+        const newCache: MessagesCache = {}
+
+        // Transform system messages: extract text field from each message object
+        Object.entries(data).forEach(([templateId, messages]: any) => {
+          newCache[templateId] = {
+            individual: (messages.individual || []).map((m: any) => m.text),
+            team: (messages.team || []).map((m: any) => m.text),
+          }
+        })
+
+        // Fetch messages for custom templates individually (if any exist)
+        for (const template of savedCustomTemplates) {
+          try {
+            const res = await fetch(`/api/messages/template/${template.id}`)
+            const customData = await res.json()
+            newCache[template.id] = {
+              individual: (customData.individual || []).map((m: any) => m.text),
+              team: (customData.team || []).map((m: any) => m.text),
+            }
+          } catch (err) {
+            console.error(`Failed to load messages for custom template ${template.id}:`, err)
+            newCache[template.id] = { individual: [], team: [] }
+          }
+        }
+
+        setMessagesCache(newCache)
+      } catch (err) {
+        console.error("Failed to load messages:", err)
+        // Provide sensible fallback
+        setMessagesCache({})
+      } finally {
+        setLoadingMessages(false)
+      }
+    }
+
+    fetchAllMessages()
+  }, [user, savedCustomTemplates])
+
+  // ── Custom Template handlers ──────────────────────────────────────────────
+
+  const handleOpenCustomDialog = () => {
+    setCustomForm({ name: "", tagline: "", color: "blue", iconName: "Star", backgroundImageBlob: null, backgroundImagePreview: null })
+    setCustomFormErrors({})
+    setShowCustomDialog(true)
+  }
+
+  const handleCustomTemplateCreate = async () => {
+    const errs: Record<string, string> = {}
+    if (!customForm.name.trim()) errs.name = "Template name is required"
+    if (Object.keys(errs).length) { setCustomFormErrors(errs); return }
+
+    setIsSavingTemplate(true)
+    try {
+      const saved = await apiClient.post<SavedCustomTemplate>("/custom-templates", {
+        name: customForm.name.trim(),
+        tagline: customForm.tagline.trim() || null,
+        color: customForm.color,
+        iconName: customForm.iconName,
+        backgroundImageBlob: customForm.backgroundImageBlob,
+      })
+      setSavedCustomTemplates((prev) => [...prev, saved])
+      setSelectedTemplate(toTemplateObj(saved) as any)
+      setShowCustomDialog(false)
+    } catch {
+      toast({ title: "Error", description: "Failed to save custom template.", variant: "destructive" })
+    } finally {
+      setIsSavingTemplate(false)
+    }
+  }
+
+  const handleBackgroundImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    // Validate file type
+    if (!file.type.startsWith("image/")) {
+      toast({ title: "Error", description: "Please select an image file", variant: "destructive" })
+      return
+    }
+
+    // Validate file size (2MB max)
+    if (file.size > 2 * 1024 * 1024) {
+      toast({ title: "Error", description: "Image must be smaller than 2MB", variant: "destructive" })
+      return
+    }
+
+    // Convert to base64
+    const reader = new FileReader()
+    reader.onload = (evt) => {
+      const base64 = evt.target?.result as string
+      setCustomForm((p) => ({
+        ...p,
+        backgroundImageBlob: base64,
+        backgroundImagePreview: base64,
+      }))
+    }
+    reader.readAsDataURL(file)
+  }
+
+  const handleDeleteCustomTemplate = async (e: React.MouseEvent, id: string) => {
+    e.stopPropagation()
+    setDeletingTemplateId(id)
+    try {
+      await apiClient.delete(`/custom-templates/${id}`)
+      setSavedCustomTemplates((prev) => prev.filter((t) => t.id !== id))
+      // If the deleted template is currently selected, fall back to first built-in
+      if ((selectedTemplate as any)._savedId === id) {
+        setSelectedTemplate(templates[0])
+      }
+    } catch {
+      toast({ title: "Error", description: "Failed to delete template.", variant: "destructive" })
+    } finally {
+      setDeletingTemplateId(null)
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+
+  const generateLivePreview = async () => {
+    setIsPreviewLoading(true)
+    try {
+      const canvas = document.createElement("canvas")
+      canvas.width = 1080
+      canvas.height = 1350
+      const ctx = canvas.getContext("2d")
+      if (!ctx) return
+
+      const previewData = {
+        template: { ...selectedTemplate, icon: selectedTemplate.name },
+        recipientName: formData.recipientName || "Recipient Name",
+        designation: "",
+        message: formData.message || "Your appreciation message will appear here...",
+        creatorName: formData.creatorName || (user?.name || "Your Name"),
+        image: formData.image,
+        images: formData.images,
+        recipientType: formData.recipientType,
+        recipientEmails: []
+      }
+
+      await generateKudosCardToCanvas(canvas, previewData)
+
+      canvas.toBlob((blob) => {
+        if (blob) {
+          const url = URL.createObjectURL(blob)
+          setPreviewImageUrl((prev) => {
+            if (prev) URL.revokeObjectURL(prev)
+            return url
+          })
+        }
+      }, "image/png")
+    } catch (e) {
+      console.error("Preview generation failed", e)
+    } finally {
+      setIsPreviewLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    const timer = setTimeout(() => generateLivePreview(), 800)
+    return () => clearTimeout(timer)
+  }, [
+    formData.recipientName, 
+    formData.message, 
+    formData.creatorName, 
+    formData.image, 
+    formData.images, 
+    formData.recipientType, 
+    selectedTemplate 
+  ])
+
+
+  // Sync recipientName based on recipients list
+  useEffect(() => {
+    if (formData.recipients.length === 0) {
+        setFormData(prev => ({ ...prev, recipientName: "" }));
+        return;
+    }
+
+    if (formData.recipientType === "individual") {
+        setFormData(prev => ({ ...prev, recipientName: formData.recipients[0].displayName }));
+    } else {
+        // Team Logic
+        const getFirstName = (name: string) => name.split(' ')[0].split('@')[0];
+        
+        const names = formData.recipients.map(u => getFirstName(u.displayName));
+        // Always show all names (scaler will handle fitting)
+        setFormData(prev => ({ ...prev, recipientName: names.join(", ") }));
+    }
+  }, [formData.recipients, formData.recipientType]);
+
+  const handleInputChange = (field: string, value: string) => {
+    setFormData((prev) => ({ ...prev, [field]: value }))
+    if (errors[field]) {
+      setErrors((prev) => ({ ...prev, [field]: "" }))
+    }
+  }
+
+  const handleRecipientTypeChange = (type: "individual" | "team") => {
+      setFormData(prev => ({ 
+          ...prev, 
+          recipientType: type,
+          recipients: [], // Reset recipients when switching type for clarity
+          images: [],
+          image: null 
+      }));
+      setErrors({});
+  }
+
+  const handleRecipientsChange = (recipients: GraphUser[]) => {
+      setFormData(prev => ({ ...prev, recipients }));
+      if (errors.recipientName) {
+           setErrors(prev => ({ ...prev, recipientName: "" }));
+      }
+  }
+
+  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (!files || files.length === 0) return;
+
+    if (formData.recipientType === "individual" && files.length > 1) {
+        setErrors(prev => ({ ...prev, image: "Individual cards can only have one image." }));
+        return;
+    }
+
+    if (formData.recipientType === "team" && formData.images.length + files.length > 15) {
+        setErrors(prev => ({ ...prev, image: "Team cards support up to 15 images." }));
+        return;
+    }
+
+    // Convert to array
+    const fileList = Array.from(files);
+    
+    // Check sizes
+    const oversized = fileList.some(f => f.size > 5 * 1024 * 1024);
+    if (oversized) {
+        setErrors(prev => ({ ...prev, image: "All images must be less than 5MB" }));
+        return;
+    }
+
+    // Check types
+    const invalidType = fileList.some(f => !f.type.startsWith("image/"));
+    if (invalidType) {
+        setErrors(prev => ({ ...prev, image: "Please select valid image files" }));
+        return;
+    }
+
+    // Update form
+    setFormData(prev => {
+        let newImages = [];
+        if (prev.recipientType === "team") {
+            newImages = [...prev.images, ...fileList].slice(0, 15);
+        } else {
+            newImages = fileList;
+        }
+        return {
+            ...prev,
+            images: newImages,
+            image: newImages[0] || null // Set first as legacy image for compatibility
+        };
+    });
+    setErrors(prev => ({ ...prev, image: "" }));
+
+    // Auto-crop disabled based on user request. Users can still manually crop.
+    // setCropQueue(fileList.map((f, i) => ({ index: i, url: URL.createObjectURL(f) })));
+  }
+
+  const handleEditCrop = (index: number) => {
+    setCropQueue([{ index, url: URL.createObjectURL(formData.images[index]) }]);
+  };
+
+  const handleCropComplete = (croppedBlob: Blob) => {
+    if (cropQueue.length === 0) return;
+    const current = cropQueue[0];
+    
+    setFormData(prev => {
+      const newImages = [...prev.images];
+      // create new file from blob. Keep original name, but update type visually
+      const newFile = new File([croppedBlob], newImages[current.index].name, { type: 'image/jpeg' });
+      newImages[current.index] = newFile;
+      return { ...prev, images: newImages, image: newImages[0] };
+    });
+    
+    // Proceed to next in queue
+    setCropQueue(prev => prev.slice(1));
+  }
+
+  const handleRemoveImage = (index: number) => {
+    setFormData(prev => {
+        const newImages = [...prev.images];
+        newImages.splice(index, 1);
+        return {
+            ...prev,
+            images: newImages,
+            image: newImages.length > 0 ? newImages[0] : null
+        };
+    });
+  };
+
+  const validateForm = () => {
+    const newErrors: Record<string, string> = {}
+
+    if (formData.recipients.length === 0) {
+      newErrors.recipientName = "Please select at least one recipient";
+    }
+    
+    if (formData.recipientType === "individual" && formData.recipients.length > 1) {
+         newErrors.recipientName = "Individual mode allows only one recipient";
+    }
+
+    if (!formData.message.trim()) {
+      newErrors.message = "Kudos message is required"
+    } else if (formData.message.length > 250) {
+      newErrors.message = "Message must be 250 characters or less"
+    }
+
+    if (!formData.creatorName.trim()) {
+      newErrors.creatorName = "Your name is required"
+    }
+    
+    // Image validation (Optional, but if supplied must be correct count)
+    if (formData.recipientType === "individual" && formData.images.length > 1) {
+        newErrors.image = "Individual cards can only have one image";
+    }
+
+    setErrors(newErrors)
+    return Object.keys(newErrors).length === 0
+  }
+
+  const handleGenerateCard = async () => {
+    if (!validateForm()) {
+        toast({
+            title: "Missing Fields",
+            description: "Please fill in all required fields to generate the card.",
+            variant: "destructive",
+            duration: 3000,
+        })
+        // Scroll to top to show errors
+        window.scrollTo({ top: 0, behavior: "smooth" })
+        return
+    }
+
+    setIsGenerating(true)
+    try {
+      const cardDataPayload = {
+        template: {
+            ...selectedTemplate,
+            icon: selectedTemplate.name
+        },
+        recipientName: formData.recipientName,
+        designation:  "", // Optional or can be filled if we had data
+        message: formData.message,
+        creatorName: formData.creatorName,
+        image: formData.image,
+        images: formData.images, // Pass array
+        recipientType: formData.recipientType,
+        recipientEmails: formData.recipients.map(r => r.mail || r.userPrincipalName) // Pass emails
+      }
+
+      // Generate the card (client side visual)
+      await generateKudosCard(cardDataPayload)
+
+      // ID generation handled by backend save
+
+      // Generate thumbnail for storage
+      const canvas = document.createElement("canvas")
+      canvas.width = 1080
+      canvas.height = 1350
+      const ctx = canvas.getContext("2d")
+
+      if (ctx) {
+        await generateKudosCardToCanvas(canvas, cardDataPayload)
+
+        const fullImageBase64 = canvas.toDataURL("image/png", 1.0)
+        
+        // Thumbnail generation...
+        const thumbnailCanvas = document.createElement("canvas")
+        const thumbnailWidth = 300
+        const thumbnailHeight = (canvas.height / canvas.width) * thumbnailWidth
+        thumbnailCanvas.width = thumbnailWidth
+        thumbnailCanvas.height = thumbnailHeight
+        
+        const thumbnailCtx = thumbnailCanvas.getContext("2d")
+        if (thumbnailCtx) {
+          thumbnailCtx.drawImage(canvas, 0, 0, thumbnailWidth, thumbnailHeight)
+          
+          const thumbnailBase64 = await new Promise<string>((resolve) => {
+            thumbnailCanvas.toBlob((blob) => {
+              resolve(blob ? URL.createObjectURL(blob) : "") 
+            }, "image/jpeg", 0.7)
+          });
+           
+          // Re-implementing FileReader for Base64 (Robust)
+          const realThumbnailBase64 = await new Promise<string>((resolve) => {
+             thumbnailCanvas.toBlob(blob => {
+                 if(blob) {
+                    const reader = new FileReader();
+                    reader.onload = () => resolve(reader.result as string);
+                    reader.readAsDataURL(blob);
+                 } else {
+                     resolve("");
+                 }
+             }, "image/jpeg", 0.7);
+          });
+          
+          const storedCard: StoredCard & { recipientType?: string, recipientEmails?: string[] } = {
+            id: "", 
+            recipientName: formData.recipientName,
+            creatorName: formData.creatorName,
+            creatorEmail: user?.email || "",
+            template: selectedTemplate.name,
+            templateId: selectedTemplate.id,
+            message: formData.message,
+            createdAt: new Date().toISOString(),
+            thumbnailUrl: realThumbnailBase64,
+            imageBlob: fullImageBase64,
+            cardData: cardDataPayload,
+            recipientType: formData.recipientType,
+            recipientEmails: cardDataPayload.recipientEmails
+          }
+          
+          await cardStorage.saveCard(storedCard)
+        }
+      }
+
+      await logToGoogleSheets({
+        creatorName: formData.creatorName,
+        recipientName: formData.recipientName,
+        template: selectedTemplate.name,
+        message: formData.message,
+        timestamp: new Date().toISOString(),
+      })
+
+      setGeneratedCardData(cardDataPayload)
+      setShowSuccessModal(true)
+    } catch (error) {
+      console.error("Error generating card:", error)
+      toast({
+        title: "Error",
+        description: "Failed to generate card. Please try again.",
+        variant: "destructive",
+        duration: 5000,
+      })
+    } finally {
+      setIsGenerating(false)
+    }
+  }
+  
+   const handleRedownload = async () => {
+    if (!generatedCardData) return
+
+    setIsGenerating(true)
+    try {
+      await generateKudosCard(generatedCardData)
+      toast({
+        title: "Downloaded!",
+        description: "Your kudos card has been downloaded again.",
+        duration: 3000,
+      })
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to download card. Please try again.",
+        variant: "destructive",
+        duration: 3000,
+      })
+    } finally {
+      setIsGenerating(false)
+    }
+  }
+
+  const handleCreateAnother = () => {
+    setShowSuccessModal(false)
+    setGeneratedCardData(null)
+    setFormData((prev) => ({
+      ...prev,
+      recipients: [],
+      recipientName: "",
+      message: "",
+      image: null,
+      images: []
+    }))
+    setErrors({})
+  }
+
+  // Pre-message logic updated
+  const handlePreGeneratedMessage = (message: string) => {
+    handleInputChange("message", message)
+  }
+
+  const messageLength = formData.message.length
+  // Validator boolean for UI
+  const isFormValid = formData.recipients.length > 0 && formData.message && formData.creatorName
+
+  // Select message set based on type (from fetched cache)
+  const currentMessages = messagesCache[selectedTemplate.id]?.[formData.recipientType] || []
+
+  // ... Template Switch logic ...
+  const hasFormData = () => {
+    return formData.recipients.length > 0 || formData.message.trim() !== "" || formData.images.length > 0
+  }
+
+  const handleTemplateSelection = (template: any) => {
+     if (template.id === selectedTemplate.id) return 
+     if (hasFormData()) {
+       setPendingTemplate(template)
+       setShowConfirmDialog(true)
+     } else {
+       setSelectedTemplate(template)
+     }
+  }
+
+  const handleConfirmTemplateSwitch = () => {
+    if (pendingTemplate) {
+      setSelectedTemplate(pendingTemplate)
+      setFormData((prev) => ({
+        ...prev,
+        recipients: [],
+        recipientName: "",
+        message: "",
+        image: null,
+        images: []
+      }))
+      setErrors({})
+    }
+    setShowConfirmDialog(false)
+    setPendingTemplate(null)
+  }
+  
+  const handleCancelTemplateSwitch = () => {
+    setShowConfirmDialog(false)
+    setPendingTemplate(null)
+  }
+  
+  const handleViewMyCards = () => {
+    setShowSuccessModal(false)
+    window.location.href = "/dashboard/my-cards"
+  }
+  
+  // Full screen preview trigger
+  const handlePreviewGenerated = () => {
+      setShowFullScreenPreview(true)
+  }
+
+
+  return (
+    <>
+      <main className="max-w-7xl mx-auto px-6 py-8">
+        <div className="text-center mb-8">
+          <h2 className="text-3xl font-bold text-foreground mb-3">Create Recognition Card</h2>
+          <p className="text-muted-foreground max-w-2xl mx-auto">
+            Show appreciation to your colleagues with a personalized kudos card
+          </p>
+        </div>
+
+        <div className="mb-8">
+          <h3 className="text-lg font-semibold text-foreground mb-4">Choose Template</h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
+            {/* Built-in templates */}
+            {templates.map((template) => {
+              const IconComponent = template.icon
+              return (
+                <Card
+                  key={template.id}
+                  className={`cursor-pointer transition-all duration-200 hover:scale-[1.02] shadow-md hover:shadow-lg ${
+                    selectedTemplate.id === template.id ? "ring-2 ring-primary shadow-lg" : ""
+                  }`}
+                  onClick={() => handleTemplateSelection(template)}
+                >
+                  <CardContent className="p-4 text-center">
+                    <div
+                      className={`w-12 h-12 ${template.color} rounded-lg flex items-center justify-center mx-auto mb-3 shadow-sm`}
+                    >
+                      <IconComponent className="w-6 h-6 text-white" />
+                    </div>
+                    <h4 className="font-semibold text-card-foreground mb-1 text-sm">{template.name}</h4>
+                    <p className="text-xs text-muted-foreground leading-tight">{template.description}</p>
+                  </CardContent>
+                </Card>
+              )
+            })}
+
+            {/* TODO: Custom templates feature - hidden for now, will be developed in Phase 3 */}
+            {false && (
+              <>
+                {/* Saved custom templates */}
+                {savedCustomTemplates.map((saved) => {
+                  const tmpl = toTemplateObj(saved)
+                  const IconComponent = tmpl.icon
+                  const isSelected = selectedTemplate.id === tmpl.id
+                  return (
+                    <Card
+                      key={saved.id}
+                      className={`relative cursor-pointer transition-all duration-200 hover:scale-[1.02] shadow-md hover:shadow-lg group ${
+                        isSelected ? "ring-2 ring-primary shadow-lg" : ""
+                      }`}
+                      onClick={() => handleTemplateSelection(tmpl as any)}
+                    >
+                      <CardContent className="p-4 text-center">
+                        <div className={`w-12 h-12 ${tmpl.color} rounded-lg flex items-center justify-center mx-auto mb-3 shadow-sm`}>
+                          <IconComponent className="w-6 h-6 text-white" />
+                        </div>
+                        <h4 className="font-semibold text-card-foreground mb-1 text-sm truncate">{tmpl.name}</h4>
+                        <p className="text-xs text-muted-foreground leading-tight truncate">{tmpl.description}</p>
+                      </CardContent>
+                      {/* Delete button */}
+                      <button
+                        className="absolute top-1.5 right-1.5 opacity-0 group-hover:opacity-100 transition-opacity bg-destructive/90 hover:bg-destructive text-white rounded-full w-5 h-5 flex items-center justify-center"
+                        onClick={(e) => handleDeleteCustomTemplate(e, saved.id)}
+                        title="Delete template"
+                      >
+                        {deletingTemplateId === saved.id
+                          ? <Loader2 className="w-3 h-3 animate-spin" />
+                          : <X className="w-3 h-3" />
+                        }
+                      </button>
+                    </Card>
+                  )
+                })}
+
+                {/* "+ Custom" create-new card */}
+                <Card
+                  className="cursor-pointer transition-all duration-200 hover:scale-[1.02] border-2 border-dashed border-border hover:border-primary hover:shadow-lg"
+                  onClick={handleOpenCustomDialog}
+                >
+                  <CardContent className="p-4 text-center">
+                    <div className="w-12 h-12 bg-muted rounded-lg flex items-center justify-center mx-auto mb-3">
+                      <Plus className="w-6 h-6 text-muted-foreground" />
+                    </div>
+                    <h4 className="font-semibold text-card-foreground mb-1 text-sm">Custom</h4>
+                    <p className="text-xs text-muted-foreground leading-tight">Build your own award template</p>
+                  </CardContent>
+                </Card>
+              </>
+            )}
+          </div>
+        </div>
+
+        <div className="grid lg:grid-cols-2 gap-8">
+          <div>
+            <Card className="shadow-lg border-border">
+              <CardContent className="p-6">
+                <h3 className="text-xl font-semibold text-card-foreground mb-6 flex items-center gap-2">
+                  <Users className="w-5 h-5 text-primary" />
+                  Card Details
+                </h3>
+
+                <div className="space-y-4">
+                  <RecipientSelector 
+                      type={formData.recipientType}
+                      onTypeChange={handleRecipientTypeChange}
+                      selectedRecipients={formData.recipients}
+                      onRecipientsChange={handleRecipientsChange}
+                      error={errors.recipientName}
+                  />
+
+                  <div>
+                    <Label htmlFor="message" className="text-sm font-semibold text-foreground mb-2 block">
+                      Kudos Message *
+                    </Label>
+
+                    <div className="mb-3">
+                        <Select onValueChange={handlePreGeneratedMessage} disabled={loadingMessages}>
+                            <SelectTrigger className="w-full bg-input border-border">
+                            <SelectValue placeholder={loadingMessages ? "Loading messages..." : "Choose a pre-generated message or write your own"} />
+                            </SelectTrigger>
+                            <SelectContent>
+                            {currentMessages.length > 0 ? (
+                              currentMessages.map((message, index) => (
+                                <SelectItem key={index} value={message} className="text-sm">
+                                {message.length > 60 ? `${message.substring(0, 60)}...` : message}
+                                </SelectItem>
+                              ))
+                            ) : (
+                              <div className="p-2 text-xs text-muted-foreground">
+                                {loadingMessages ? "Loading messages..." : "No messages available"}
+                              </div>
+                            )}
+                            </SelectContent>
+                        </Select>
+                    </div>
+
+                    <div className="flex justify-end mb-2">
+                         <AiMessageAssistant 
+                             context="Kudos"
+                             recipientName={formData.recipientName}
+                             category={selectedTemplate.name}
+                             currentValue={formData.message}
+                             onMessageGenerated={(msg) => handleInputChange("message", msg)}
+                         />
+                    </div>
+
+                    <Textarea
+                      id="message"
+                      placeholder="Write your appreciation message..."
+                      value={formData.message}
+                      onChange={(e) => handleInputChange("message", e.target.value)}
+                      className={`min-h-[100px] bg-input border-border resize-none ${errors.message ? "border-destructive" : "focus:ring-accent focus:border-accent"}`}
+                      maxLength={250}
+                    />
+                    <div className="flex justify-between items-center mt-1">
+                      {errors.message ? (
+                        <p className="text-xs text-destructive">{errors.message}</p>
+                      ) : (
+                        <p className="text-xs text-muted-foreground">Share what makes them special</p>
+                      )}
+                      <p className={`text-xs ${messageLength > 230 ? "text-destructive" : "text-muted-foreground"}`}>
+                        {messageLength}/250
+                      </p>
+                    </div>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="image" className="text-sm font-semibold text-foreground mb-2 block">
+                      {formData.recipientType === 'individual' ? "Upload Image (Optional)" : "Upload Images (Optional, up to 15)"}
+                    </Label>
+                    <label
+                      htmlFor="image"
+                      className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-border rounded-lg cursor-pointer bg-input hover:bg-muted/50 transition-colors"
+                    >
+                      <div className="flex flex-col items-center justify-center pt-3 pb-3">
+                        <Upload className="w-6 h-6 text-muted-foreground mb-2" />
+                        <p className="text-sm text-foreground">Click to upload</p>
+                        <p className="text-xs text-muted-foreground">{formData.recipientType === 'individual' ? "PNG, JPG up to 5MB" : "Select multiple images"}</p>
+                      </div>
+                      <input 
+                          id="image" 
+                          type="file" 
+                          className="hidden" 
+                          accept="image/*" 
+                          multiple={formData.recipientType === 'team'}
+                          onChange={handleImageUpload} 
+                      />
+                    </label>
+                    {formData.images.length > 0 && (
+                        <div className="flex flex-wrap gap-2 mt-2">
+                            {formData.images.map((f, i) => (
+                                <div key={i} className="flex items-center gap-1 bg-accent/10 px-2 py-1 rounded-full border border-accent/20">
+                                    <span className="text-xs text-accent font-medium max-w-[150px] truncate" title={f.name}>
+                                        {f.name}
+                                    </span>
+                                    <button
+                                        onClick={() => handleEditCrop(i)}
+                                        className="text-accent hover:text-primary transition-colors ml-1"
+                                        title="Crop Image"
+                                        type="button"
+                                    >
+                                        <Crop className="w-3 h-3" />
+                                    </button>
+                                    <button
+                                        onClick={() => handleRemoveImage(i)}
+                                        className="text-accent hover:text-destructive transition-colors ml-1"
+                                        title="Remove Image"
+                                        type="button"
+                                    >
+                                        <X className="w-3 h-3" />
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                    {errors.image && <p className="text-xs text-destructive mt-1">{errors.image}</p>}
+                  </div>
+
+                  <div>
+                    <Label htmlFor="creatorName" className="text-sm font-semibold text-foreground mb-2 block">
+                      Your Name *
+                    </Label>
+                    <Input
+                      id="creatorName"
+                      placeholder="Enter your name"
+                      value={formData.creatorName}
+                      onChange={(e) => handleInputChange("creatorName", e.target.value)}
+                      className={`h-10 bg-input border-border text-foreground ${errors.creatorName ? "border-destructive" : "focus:ring-accent focus:border-accent"}`}
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      This field is automatically populated from your login. Will be dynamic once SSO is implemented.
+                    </p>
+                    {errors.creatorName && <p className="text-xs text-destructive mt-1">{errors.creatorName}</p>}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          <div className="lg:sticky lg:top-24 lg:h-fit">
+            <Card className="shadow-lg border-border">
+              <CardContent className="p-6 py-0">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-xl font-semibold text-card-foreground flex items-center gap-2">
+                    <Award className="w-5 h-5 text-primary" />
+                    Kudos Card
+                  </h3>
+                  <div className="flex gap-2">
+                    <Button
+                      onClick={handlePreviewGenerated}
+                      disabled={!previewImageUrl}
+                      variant="outline"
+                      className="border-primary text-primary hover:bg-primary/10 font-medium px-4 py-2 disabled:opacity-50 bg-transparent"
+                    >
+                      <Award className="w-4 h-4 mr-2" />
+                      Full Screen
+                    </Button>
+                <Button
+                      onClick={handleGenerateCard}
+                      disabled={isGenerating}
+                      className="bg-primary hover:bg-primary/90 text-primary-foreground font-medium px-6 py-2 disabled:opacity-50 shadow-md"
+                    >
+                      <Download className="w-4 h-4 mr-2" />
+                      {isGenerating ? "Generating..." : "Generate"}
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="bg-gradient-to-br from-card to-muted/20 rounded-xl border border-border p-6 aspect-video flex flex-col justify-between shadow-inner px-0 py-0 overflow-hidden relative">
+                   {/* Live Sidebar Preview */}
+                   {isPreviewLoading && (
+                       <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/10 backdrop-blur-[1px]">
+                           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                       </div>
+                   )}
+                   
+                   {previewImageUrl ? (
+                       <img src={previewImageUrl} alt="Preview" className="w-full h-full object-contain rounded-xl" />
+                   ) : (
+                       <div className="w-full h-full flex flex-col items-center justify-center text-muted-foreground bg-muted/20 rounded-xl p-6 text-center">
+                           <Award className="w-12 h-12 mb-2 text-muted-foreground/50" />
+                           <p>Generating preview...</p>
+                       </div>
+                   )}
+                </div>
+
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+
+        {/* Success Modal */}
+        {showSuccessModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+            <div className="bg-background rounded-lg shadow-xl w-full max-w-md p-6 m-4 border border-border">
+              <div className="flex items-center justify-center mb-4 text-green-500">
+                <CheckCircle className="w-12 h-12" />
+              </div>
+              <h3 className="text-2xl font-bold text-center text-foreground mb-2">Card Generated!</h3>
+              <p className="text-center text-muted-foreground mb-6">
+                Your kudos card has been successfully created and saved.
+              </p>
+
+              <div className="space-y-3">
+                <Button
+                  onClick={handleRedownload}
+                  className="w-full transition-transform active:scale-[0.98]"
+                  variant="outline"
+                >
+                  <Download className="w-4 h-4 mr-2" />
+                  Download Again
+                </Button>
+                <Button onClick={handleCreateAnother} className="w-full bg-primary hover:bg-primary/90">
+                  <Sparkles className="w-4 h-4 mr-2" />
+                  Create Another
+                </Button>
+                <Button onClick={handleViewMyCards} variant="ghost" className="w-full">
+                  View My Cards
+                </Button>
+                <Button onClick={handleCreateAnother} variant="ghost" className="w-full text-muted-foreground">
+                  Close
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Template Switch Confirmation Dialog */}
+        {showConfirmDialog && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+            <div className="bg-background rounded-lg shadow-xl w-full max-w-md p-6 m-4 border border-border">
+              <div className="flex items-center justify-center mb-4 text-yellow-500">
+                <AlertTriangle className="w-12 h-12" />
+              </div>
+              <h3 className="text-xl font-bold text-center text-foreground mb-2">Switch Template?</h3>
+              <p className="text-center text-muted-foreground mb-6">
+                Switching templates will clear your current message and image. Are you sure you want to continue?
+              </p>
+
+              <div className="flex gap-3">
+                <Button onClick={handleCancelTemplateSwitch} variant="outline" className="flex-1">
+                  Cancel
+                </Button>
+                <Button onClick={handleConfirmTemplateSwitch} className="flex-1 bg-primary text-primary-foreground">
+                  Yes, Switch
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Preview Modal (Full Screen) */}
+        {showFullScreenPreview && previewImageUrl && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4" onClick={() => setShowFullScreenPreview(false)}>
+            <div className="relative max-h-[90vh] max-w-[90vw] overflow-auto" onClick={e => e.stopPropagation()}>
+                <img src={previewImageUrl} alt="Card Preview" className="max-w-full max-h-[85vh] rounded-lg shadow-2xl" />
+                <Button 
+                    className="absolute top-2 right-2 rounded-full p-2 h-auto" 
+                    variant="destructive"
+                    onClick={() => setShowFullScreenPreview(false)}
+                >
+                     <p className="sr-only">Close</p>
+
+                     <span className="text-white font-bold">X</span>
+                </Button>
+            </div>
+          </div>
+        )}
+      </main>
+
+      <footer className="bg-card/80 backdrop-blur-sm border-t border-border mt-12 py-6 w-full">
+        <div className="text-center">
+          <p className="text-muted-foreground text-sm">© {new Date().getFullYear()} Reflections.</p>
+        </div>
+      </footer>
+
+      {/* ── Custom Template Dialog ─────────────────────────────────────────── */}
+      {/* TODO: Custom template dialog - hidden for now, will be developed in Phase 3 */}
+      {false && showCustomDialog && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-card border border-border rounded-xl shadow-2xl w-full max-w-md">
+            <div className="flex items-center justify-between p-6 border-b border-border">
+              <h2 className="text-lg font-semibold text-foreground">Create Custom Template</h2>
+              <button
+                onClick={() => setShowCustomDialog(false)}
+                className="text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-5">
+              {/* Template Name */}
+              <div>
+                <Label className="text-sm font-semibold mb-1.5 block">Template Name *</Label>
+                <Input
+                  placeholder="e.g. Innovation Champion"
+                  maxLength={40}
+                  value={customForm.name}
+                  onChange={(e) => setCustomForm((p) => ({ ...p, name: e.target.value }))}
+                  className={`bg-input border-border ${customFormErrors.name ? "border-destructive" : ""}`}
+                />
+                {customFormErrors.name && (
+                  <p className="text-xs text-destructive mt-1">{customFormErrors.name}</p>
+                )}
+              </div>
+
+              {/* Tagline */}
+              <div>
+                <Label className="text-sm font-semibold mb-1.5 block">Tagline <span className="text-muted-foreground font-normal">(optional)</span></Label>
+                <Input
+                  placeholder="e.g. Pushing boundaries every day"
+                  maxLength={80}
+                  value={customForm.tagline}
+                  onChange={(e) => setCustomForm((p) => ({ ...p, tagline: e.target.value }))}
+                  className="bg-input border-border"
+                />
+              </div>
+
+              {/* Background Image Upload */}
+              <div>
+                <Label className="text-sm font-semibold mb-1.5 block">Background Image <span className="text-muted-foreground font-normal">(optional)</span></Label>
+                <label className="flex flex-col items-center justify-center w-full h-24 border-2 border-dashed border-border rounded-lg cursor-pointer bg-input hover:bg-muted/50 transition-colors">
+                  <div className="flex flex-col items-center justify-center pt-3 pb-3">
+                    <Upload className="w-5 h-5 text-muted-foreground mb-1" />
+                    <p className="text-xs text-muted-foreground">Click to upload (max 2MB)</p>
+                  </div>
+                  <input
+                    type="file"
+                    className="hidden"
+                    accept="image/*"
+                    onChange={handleBackgroundImageUpload}
+                  />
+                </label>
+                {customForm.backgroundImagePreview && (
+                  <div className="mt-2 relative">
+                    <img
+                      src={customForm.backgroundImagePreview || undefined}
+                      alt="Preview"
+                      className="w-full h-20 object-cover rounded-lg"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setCustomForm((p) => ({ ...p, backgroundImageBlob: null, backgroundImagePreview: null }))}
+                      className="absolute top-1 right-1 bg-destructive/90 hover:bg-destructive text-white rounded-full w-5 h-5 flex items-center justify-center text-xs"
+                    >
+                      ×
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Theme Color */}
+              <div>
+                <Label className="text-sm font-semibold mb-2 block">Theme Color</Label>
+                <div className="flex flex-wrap gap-2">
+                  {CUSTOM_COLORS.map((c) => (
+                    <button
+                      key={c.name}
+                      onClick={() => setCustomForm((p) => ({ ...p, color: c.name }))}
+                      className={`w-8 h-8 rounded-full ${c.bg} transition-all ${
+                        customForm.color === c.name ? `ring-2 ring-offset-2 ring-offset-card ${c.ring} scale-110` : "hover:scale-105"
+                      }`}
+                      title={c.name}
+                    />
+                  ))}
+                </div>
+              </div>
+
+              {/* Icon */}
+              <div>
+                <Label className="text-sm font-semibold mb-2 block">Icon</Label>
+                <div className="grid grid-cols-6 gap-2">
+                  {Object.entries(CUSTOM_ICON_MAP).map(([name, IconComp]) => (
+                    <button
+                      key={name}
+                      onClick={() => setCustomForm((p) => ({ ...p, iconName: name }))}
+                      className={`p-2 rounded-lg border transition-all flex items-center justify-center ${
+                        customForm.iconName === name
+                          ? "border-primary bg-primary/10 text-primary"
+                          : "border-border bg-input text-muted-foreground hover:border-primary/50"
+                      }`}
+                      title={name}
+                    >
+                      <IconComp className="w-4 h-4" />
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Preview strip */}
+              <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
+                <div className={`w-10 h-10 bg-${customForm.color}-500 rounded-lg flex items-center justify-center shadow-sm shrink-0`}>
+                  {(() => { const I = CUSTOM_ICON_MAP[customForm.iconName] ?? Star; return <I className="w-5 h-5 text-white" /> })()}
+                </div>
+                <div className="overflow-hidden">
+                  <p className="font-semibold text-sm text-foreground truncate">{customForm.name || "Template Name"}</p>
+                  <p className="text-xs text-muted-foreground truncate">{customForm.tagline || "Your tagline here"}</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex gap-3 p-6 pt-0">
+              <Button
+                variant="outline"
+                className="flex-1 border-border"
+                onClick={() => setShowCustomDialog(false)}
+                disabled={isSavingTemplate}
+              >
+                Cancel
+              </Button>
+              <Button
+                className="flex-1 bg-primary hover:bg-primary/90 text-primary-foreground"
+                onClick={handleCustomTemplateCreate}
+                disabled={isSavingTemplate}
+              >
+                {isSavingTemplate ? (
+                  <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Saving...</>
+                ) : (
+                  <><Sparkles className="w-4 h-4 mr-2" />Create Template</>
+                )}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* ──────────────────────────────────────────────────────────────────── */}
+
+      <ImageCropperDialog
+        isOpen={cropQueue.length > 0}
+        imageSrc={cropQueue[0]?.url || null}
+        onClose={() => setCropQueue(prev => prev.slice(1))}
+        onCropComplete={handleCropComplete}
+      />
+    </>
+  )
+}
