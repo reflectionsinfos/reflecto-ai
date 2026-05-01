@@ -11,6 +11,7 @@ import {
   Search,
   Settings,
   Image as ImageIcon,
+  FileText,
   PartyPopper,
   Briefcase,
   Trophy
@@ -58,6 +59,12 @@ export function AppSidebar({ className }: SidebarProps) {
       icon: ImageIcon,
       href: "/dashboard/my-cards",
       color: "text-pink-500",
+    },
+    {
+      name: "Release Notes",
+      icon: FileText,
+      href: "/dashboard/release-notes",
+      color: "text-emerald-500",
     },
   ]
 

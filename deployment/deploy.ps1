@@ -147,6 +147,113 @@ function Move-ExistingDeploymentLog {
   Move-Item -LiteralPath $Path -Destination $archivePath
 }
 
+function ConvertTo-UrlPathSegment {
+  param([Parameter(Mandatory = $true)] [string]$Value)
+  return [System.Uri]::EscapeDataString($Value).Replace("%2F", "/")
+}
+
+function Update-ReleaseNotesManifest {
+  param(
+    [Parameter(Mandatory = $true)] [string]$ReleaseNotesPublicRoot,
+    [Parameter(Mandatory = $true)] [string]$ReleaseName,
+    [Parameter(Mandatory = $true)] [string]$ReleaseDateUtc,
+    [Parameter(Mandatory = $true)] [string]$Branch,
+    [Parameter(Mandatory = $true)] [string]$Commit,
+    [Parameter(Mandatory = $true)] [System.IO.FileInfo[]]$HtmlFiles
+  )
+
+  New-DirectoryIfMissing -Path $ReleaseNotesPublicRoot
+
+  $manifestPath = Join-Path $ReleaseNotesPublicRoot "manifest.json"
+  $existingReleases = @()
+  if (Test-Path -LiteralPath $manifestPath) {
+    try {
+      $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
+      if ($manifest.releases) { $existingReleases = @($manifest.releases) }
+    } catch {
+      Write-Log "Existing release notes manifest could not be read; recreating it. $_" "WARN"
+    }
+  }
+
+  $releaseUrlSegment = ConvertTo-UrlPathSegment -Value $ReleaseName
+  $htmlUrls = @()
+  foreach ($file in $HtmlFiles) {
+    $fileUrlSegment = ConvertTo-UrlPathSegment -Value $file.Name
+    $htmlUrls += "/release-notes/$releaseUrlSegment/$fileUrlSegment"
+  }
+
+  $customerFile = $HtmlFiles | Where-Object { $_.Name -match "customer|client|external" } | Select-Object -First 1
+  $developerFile = $HtmlFiles | Where-Object { $_.Name -match "developer|dev|engineering|internal|technical" } | Select-Object -First 1
+  if (-not $customerFile -and $HtmlFiles.Count -ge 1) { $customerFile = $HtmlFiles[0] }
+  if (-not $developerFile -and $HtmlFiles.Count -ge 2) { $developerFile = $HtmlFiles[1] }
+
+  $customerUrl = $null
+  if ($customerFile) {
+    $customerUrl = "/release-notes/$releaseUrlSegment/$(ConvertTo-UrlPathSegment -Value $customerFile.Name)"
+  }
+
+  $developerUrl = $null
+  if ($developerFile) {
+    $developerUrl = "/release-notes/$releaseUrlSegment/$(ConvertTo-UrlPathSegment -Value $developerFile.Name)"
+  }
+
+  $currentEntry = [pscustomobject]@{
+    release = $ReleaseName
+    date = $ReleaseDateUtc
+    branch = $Branch
+    commit = $Commit
+    customer = $customerUrl
+    developer = $developerUrl
+    files = $htmlUrls
+  }
+
+  $releases = @($currentEntry) + @($existingReleases | Where-Object { $_.release -ne $ReleaseName })
+  $manifestOut = [pscustomobject]@{
+    latest = $ReleaseName
+    releases = $releases
+  }
+
+  $manifestOut | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $manifestPath -Encoding UTF8
+}
+
+function Publish-ReleaseNotesToFrontend {
+  param(
+    [Parameter(Mandatory = $true)] [string]$ReleaseNotesLocalDir,
+    [Parameter(Mandatory = $true)] [string]$FrontendPublicRoot,
+    [Parameter(Mandatory = $true)] [string]$ReleaseName,
+    [Parameter(Mandatory = $true)] [string]$ReleaseDateUtc,
+    [Parameter(Mandatory = $true)] [string]$Branch,
+    [Parameter(Mandatory = $true)] [string]$Commit
+  )
+
+  $htmlFiles = @(Get-ChildItem -LiteralPath $ReleaseNotesLocalDir -Filter "*.html" -File -ErrorAction SilentlyContinue)
+  if ($htmlFiles.Count -eq 0) {
+    Write-Log "Release notes did not contain HTML files; skipping app publication." "WARN"
+    return $false
+  }
+
+  $releaseNotesPublicRoot = Join-Path $FrontendPublicRoot "release-notes"
+  $releasePublicDir = Join-Path $releaseNotesPublicRoot $ReleaseName
+  New-DirectoryIfMissing -Path $releasePublicDir
+
+  # TODO: Before these notes become customer-facing outside the company, sanitize
+  # internal-only details such as secrets, infrastructure paths, stack traces,
+  # private ticket links, and security-sensitive implementation notes.
+  foreach ($file in $htmlFiles) {
+    Copy-Item -LiteralPath $file.FullName -Destination (Join-Path $releasePublicDir $file.Name) -Force
+  }
+
+  Update-ReleaseNotesManifest `
+    -ReleaseNotesPublicRoot $releaseNotesPublicRoot `
+    -ReleaseName $ReleaseName `
+    -ReleaseDateUtc $ReleaseDateUtc `
+    -Branch $Branch `
+    -Commit $Commit `
+    -HtmlFiles $htmlFiles
+
+  return $true
+}
+
 function Test-GitPathExists {
   param(
     [Parameter(Mandatory = $true)] [string]$GitCommand,
@@ -579,6 +686,7 @@ $deployRef                     = Get-ConfigValue -Config $config -Key "DEPLOY_RE
 $useGitArchive                 = (Get-ConfigValue -Config $config -Key "DEPLOY_USE_GIT_ARCHIVE" -Default "true").ToLowerInvariant()
 $script:installDockerIfMissing = (Get-ConfigValue -Config $config -Key "DEPLOY_INSTALL_DOCKER_IF_MISSING" -Default "true").ToLowerInvariant()
 $retainReleases                = Get-ConfigValue -Config $config -Key "DEPLOY_RETAIN_RELEASES" -Default "3"
+$releaseNotesEnabled           = (Get-ConfigValue -Config $config -Key "RELEASE_NOTES_ENABLED" -Default "false").ToLowerInvariant()
 $releaseAgentDir               = Get-ConfigValue -Config $config -Key "RELEASE_AGENT_DIR"      -Default "C:\projects\nexus-ai\ai-agents\release"
 $releaseNotesPreviousBranch    = Get-ConfigValue -Config $config -Key "RELEASE_NOTES_PREVIOUS_BRANCH" -Default "main"
 $releaseAgentGroqKey           = Get-ConfigValue -Config $config -Key "RELEASE_AGENT_GROQ_API_KEY"
@@ -795,6 +903,62 @@ Deploy Root  : $($script:remoteDeployRoot)
 
     } else {
 
+      $releaseNotesLocalDir = Join-Path $scriptDir "release_notes\$($script:releaseName)"
+      $releaseNotesRef      = "skipped"
+      $releaseNotesPublished = $false
+
+      # ---- Release notes (optional, auto only; generated before packaging so the app can serve them) ----
+      if ($Mode -eq "auto" -and $releaseNotesEnabled -eq "true") {
+        $releaseAgentPython = Join-Path $releaseAgentDir ".venv\Scripts\python.exe"
+        $frontendPublicRoot = Join-Path $script:localSourcePath "apps\frontend\public"
+
+        if (-not (Test-Path -LiteralPath $releaseAgentPython)) {
+          Write-Log "Release agent venv not found at $releaseAgentPython - skipping release notes." "WARN"
+        } elseif ([string]::IsNullOrWhiteSpace($releaseAgentGroqKey)) {
+          Write-Log "RELEASE_AGENT_GROQ_API_KEY not configured - skipping release notes." "WARN"
+        } elseif ($currentBranch -eq "N/A") {
+          Write-Log "Branch name unavailable - skipping release notes." "WARN"
+        } else {
+          Write-Log "Generating release notes ($currentBranch vs $releaseNotesPreviousBranch)."
+          New-DirectoryIfMissing -Path $releaseNotesLocalDir
+          Push-Location $releaseAgentDir
+          try {
+            & $releaseAgentPython -m agent run `
+              --current-release  $currentBranch `
+              --previous-release $releaseNotesPreviousBranch `
+              --repos            $script:localSourcePath `
+              --no-approval `
+              --output-dir       $releaseNotesLocalDir `
+              --groq-api-key     $releaseAgentGroqKey
+            if ($LASTEXITCODE -eq 0) {
+              $releaseNotesPublished = Publish-ReleaseNotesToFrontend `
+                -ReleaseNotesLocalDir $releaseNotesLocalDir `
+                -FrontendPublicRoot $frontendPublicRoot `
+                -ReleaseName $script:releaseName `
+                -ReleaseDateUtc ($deploymentStart.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")) `
+                -Branch $currentBranch `
+                -Commit $shortCommit
+
+              if ($releaseNotesPublished) {
+                $releaseNotesRef = "/dashboard/release-notes"
+                Write-Log "Release notes published to app assets at apps/frontend/public/release-notes/$($script:releaseName)"
+              } else {
+                $releaseNotesRef = $releaseNotesLocalDir
+                Write-Log "Release notes saved to $releaseNotesLocalDir but were not published to app assets." "WARN"
+              }
+            } else {
+              Write-Log "Release notes generation exited $LASTEXITCODE - continuing." "WARN"
+            }
+          } catch {
+            Write-Log "Release notes error: $_ - continuing." "WARN"
+          } finally {
+            Pop-Location
+          }
+        }
+      } elseif ($Mode -eq "auto") {
+        Write-Log "RELEASE_NOTES_ENABLED is not true - skipping release notes."
+      }
+
       # ---- PACKAGING (auto and copy) ----
       $artifactRoot   = Join-Path $env:TEMP ("reflecto-ai-deploy-" + [System.Guid]::NewGuid().ToString("N"))
       $stagingRoot    = Join-Path $artifactRoot "staging"
@@ -839,6 +1003,15 @@ Deploy Root  : $($script:remoteDeployRoot)
         if (Test-Path -LiteralPath (Join-Path $script:localSourcePath $extraPath)) {
           Write-Log "Overlaying local deployment file: $extraPath"
           Copy-PathToStaging -SourceRoot $script:localSourcePath -RelativePath $extraPath -DestinationRoot $stagingRoot
+        }
+      }
+
+      if ($releaseNotesPublished) {
+        $releaseNotesSourceRoot = Join-Path $script:localSourcePath "apps/frontend/public/release-notes"
+        $releaseNotesStagingRoot = Join-Path $stagingRoot "apps/frontend/public/release-notes"
+        New-DirectoryIfMissing -Path $releaseNotesStagingRoot
+        Get-ChildItem -LiteralPath $releaseNotesSourceRoot | ForEach-Object {
+          Copy-Item -LiteralPath $_.FullName -Destination $releaseNotesStagingRoot -Recurse -Force
         }
       }
 
@@ -896,42 +1069,6 @@ Archive      : $($script:remoteArchivePath) (remove after activation)
         $duration      = $deploymentEnd - $deploymentStart
         $durationStr   = "{0}h {1}m {2}s" -f [int]$duration.TotalHours, $duration.Minutes, $duration.Seconds
 
-        # ---- Release notes (optional, auto only) ----
-        $releaseNotesLocalDir = Join-Path $scriptDir "release_notes\$($script:releaseName)"
-        $releaseNotesRef      = "skipped"
-        $releaseAgentPython   = Join-Path $releaseAgentDir ".venv\Scripts\python.exe"
-
-        if (-not (Test-Path -LiteralPath $releaseAgentPython)) {
-          Write-Log "Release agent venv not found at $releaseAgentPython - skipping release notes." "WARN"
-        } elseif ([string]::IsNullOrWhiteSpace($releaseAgentGroqKey)) {
-          Write-Log "RELEASE_AGENT_GROQ_API_KEY not configured - skipping release notes." "WARN"
-        } elseif ($currentBranch -eq "N/A") {
-          Write-Log "Branch name unavailable - skipping release notes." "WARN"
-        } else {
-          Write-Log "Generating release notes ($currentBranch vs $releaseNotesPreviousBranch)."
-          New-DirectoryIfMissing -Path $releaseNotesLocalDir
-          Push-Location $releaseAgentDir
-          try {
-            & $releaseAgentPython -m agent run `
-              --current-release  $currentBranch `
-              --previous-release $releaseNotesPreviousBranch `
-              --repos            $script:localSourcePath `
-              --no-approval `
-              --output-dir       $releaseNotesLocalDir `
-              --groq-api-key     $releaseAgentGroqKey
-            if ($LASTEXITCODE -eq 0) {
-              $releaseNotesRef = $releaseNotesLocalDir
-              Write-Log "Release notes saved to $releaseNotesLocalDir"
-            } else {
-              Write-Log "Release notes generation exited $LASTEXITCODE - continuing." "WARN"
-            }
-          } catch {
-            Write-Log "Release notes error: $_ - continuing." "WARN"
-          } finally {
-            Pop-Location
-          }
-        }
-
         $logSummary = @"
 
 ============================================================
@@ -969,16 +1106,6 @@ POST-DEPLOYMENT VERIFICATION
             "$($script:remoteUser)@$($script:remoteHost):$($script:remoteDeployRoot)/releases/$($script:releaseName)/deployment.log"
           )
         )
-
-        if ($releaseNotesRef -ne "skipped" -and (Test-Path -LiteralPath $releaseNotesLocalDir)) {
-          Write-Log "Uploading release notes to remote server."
-          Invoke-External -FilePath $scpCommand -Arguments (
-            @("-r") + $scpBaseArgs + @(
-              $releaseNotesLocalDir,
-              "$($script:remoteUser)@$($script:remoteHost):$($script:remoteDeployRoot)/releases/$($script:releaseName)/release_notes"
-            )
-          )
-        }
 
       } # end auto
     } # end auto/copy
