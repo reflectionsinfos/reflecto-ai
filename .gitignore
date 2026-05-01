@@ -1,6 +1,7 @@
 # Dependencies
 node_modules
 .pnpm-store
+backend/dist
 
 # Testing
 coverage
@@ -44,3 +45,10 @@ apps/frontend/dist/
 .turbo/
 apps/backend/.turbo/
 apps/frontend/.turbo/
+
+# Deployment artifacts
+deployment/deployment.log
+deployment/release_notes/
+
+# Claude Code memory
+.claude/

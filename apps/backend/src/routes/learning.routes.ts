@@ -162,7 +162,7 @@ router.post("/generate-lesson", authenticate(), async (req: any, res) => {
     res.json(result);
   } catch (error: any) {
     console.error("Error generating lesson:", error);
-    res.status(500).json({ error: error.message || "Failed to generate lesson" });
+    res.status(500).json({ error: "Failed to generate lesson" });
   }
 });
 
@@ -223,7 +223,7 @@ router.post("/submit-quiz", authenticate(), async (req: any, res) => {
     res.json(evaluation);
   } catch (error: any) {
     console.error("Error submitting quiz:", error);
-    res.status(500).json({ error: error.message || "Failed to submit quiz" });
+    res.status(500).json({ error: "Failed to submit quiz" });
   }
 });
 

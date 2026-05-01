@@ -17,7 +17,11 @@ function Write-Log {
   )
 
   $timestamp = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
-  Write-Host "[$timestamp] [$Level] $Message"
+  $line = "[$timestamp] [$Level] $Message"
+  Write-Host $line
+  if ($script:logPath) {
+    Add-Content -LiteralPath $script:logPath -Value $line -Encoding UTF8
+  }
 }
 
 function Load-EnvFile {
@@ -191,6 +195,8 @@ function Copy-PathToStaging {
 }
 
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+$script:logPath = Join-Path $scriptDir "deployment.log"
+[System.IO.File]::WriteAllText($script:logPath, "", [System.Text.Encoding]::UTF8)
 $envFilePath = Join-Path $scriptDir "env.$Environment"
 $config = Load-EnvFile -Path $envFilePath
 
@@ -215,6 +221,9 @@ $deployRef = Get-ConfigValue -Config $config -Key "DEPLOY_REF" -Default "HEAD"
 $useGitArchive = (Get-ConfigValue -Config $config -Key "DEPLOY_USE_GIT_ARCHIVE" -Default "true").ToLowerInvariant()
 $installDockerIfMissing = (Get-ConfigValue -Config $config -Key "DEPLOY_INSTALL_DOCKER_IF_MISSING" -Default "true").ToLowerInvariant()
 $retainReleases = Get-ConfigValue -Config $config -Key "DEPLOY_RETAIN_RELEASES" -Default "3"
+$releaseAgentDir = Get-ConfigValue -Config $config -Key "RELEASE_AGENT_DIR" -Default "C:\projects\nexus-ai\ai-agents\release"
+$releaseNotesPreviousBranch = Get-ConfigValue -Config $config -Key "RELEASE_NOTES_PREVIOUS_BRANCH" -Default "main"
+$releaseAgentGroqKey = Get-ConfigValue -Config $config -Key "RELEASE_AGENT_GROQ_API_KEY"
 $strictHostKeyChecking = Get-ConfigValue -Config $config -Key "SSH_STRICT_HOST_KEY_CHECKING" -Default "accept-new"
 $includePaths = Get-ConfigList -Config $config -Key "DEPLOY_INCLUDE_PATHS" -Default @(
   "apps/backend",
@@ -309,6 +318,36 @@ $payloadTarPath = Join-Path $artifactRoot "payload.tar"
 $knownHostsPath = Join-Path $scriptDir ".known_hosts_$Environment"
 $askPassPath = Join-Path $env:TEMP "reflecto-ssh-askpass-$PID.cmd"
 $remoteArchivePath = "/tmp/$archiveName"
+
+$currentBranch = "N/A"
+if ($useGitArchive -eq "true") {
+  $branchOut = (& $gitCommand -C $localSourcePath rev-parse --abbrev-ref HEAD 2>$null).Trim()
+  if (-not [string]::IsNullOrEmpty($branchOut)) { $currentBranch = $branchOut }
+}
+
+$deploymentStart = Get-Date
+$deploymentSuccess = $false
+
+$logHeader = @"
+============================================================
+REFLECTO-AI DEPLOYMENT LOG
+============================================================
+Environment  : $Environment
+Start Time   : $($deploymentStart.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ"))
+Remote Host  : ${remoteUser}@${remoteHost}:${remotePort}
+Deploy Root  : $remoteDeployRoot
+Releases Dir : $remoteDeployRoot/releases
+Active Link  : $remoteDeployRoot/current
+Deploy Ref   : $deployRef
+Branch       : $currentBranch
+Commit       : $shortCommit
+Release Name : $releaseName
+Compose File : $composeFile
+Source Path  : $localSourcePath
+Retain Rel.  : $releaseRetention
+============================================================
+"@
+Add-Content -LiteralPath $script:logPath -Value $logHeader -Encoding UTF8
 
 try {
   Write-Log "Preparing deployment for environment '$Environment'."
@@ -561,11 +600,119 @@ log "Deployment completed successfully."
     if ($LASTEXITCODE -ne 0) {
       throw "Remote deployment failed."
     }
+
+    $deploymentEnd = Get-Date
+    $duration = $deploymentEnd - $deploymentStart
+    $durationStr = "{0}h {1}m {2}s" -f [int]$duration.TotalHours, $duration.Minutes, $duration.Seconds
+
+    # --- Release notes (optional) ---
+    $releaseNotesLocalDir = Join-Path $scriptDir "release_notes\$releaseName"
+    $releaseNotesRef = "skipped"
+    $releaseAgentPython = Join-Path $releaseAgentDir ".venv\Scripts\python.exe"
+
+    if (-not (Test-Path -LiteralPath $releaseAgentPython)) {
+      Write-Log "Release agent venv not found at $releaseAgentPython — skipping release notes." "WARN"
+    } elseif ([string]::IsNullOrWhiteSpace($releaseAgentGroqKey)) {
+      Write-Log "RELEASE_AGENT_GROQ_API_KEY not configured — skipping release notes." "WARN"
+    } elseif ($currentBranch -eq "N/A") {
+      Write-Log "Branch name unavailable — skipping release notes." "WARN"
+    } else {
+      Write-Log "Generating release notes ($currentBranch vs $releaseNotesPreviousBranch)."
+      New-DirectoryIfMissing -Path $releaseNotesLocalDir
+      Push-Location $releaseAgentDir
+      try {
+        & $releaseAgentPython -m agent run `
+          --current-release $currentBranch `
+          --previous-release $releaseNotesPreviousBranch `
+          --repos $localSourcePath `
+          --no-approval `
+          --output-dir $releaseNotesLocalDir `
+          --groq-api-key $releaseAgentGroqKey
+        if ($LASTEXITCODE -eq 0) {
+          $releaseNotesRef = $releaseNotesLocalDir
+          Write-Log "Release notes saved to $releaseNotesLocalDir"
+        } else {
+          Write-Log "Release notes generation exited with code $LASTEXITCODE — continuing." "WARN"
+        }
+      } catch {
+        Write-Log "Release notes generation error: $_ — continuing." "WARN"
+      } finally {
+        Pop-Location
+      }
+    }
+
+    $logSummary = @"
+
+============================================================
+DEPLOYMENT SUMMARY
+Status        : SUCCESS
+Start Time    : $($deploymentStart.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ"))
+End Time      : $($deploymentEnd.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ"))
+Duration      : $durationStr
+Branch        : $currentBranch
+Commit        : $shortCommit
+Release       : $releaseName
+------------------------------------------------------------
+Remote Server : $remoteHost
+Deploy Root   : $remoteDeployRoot
+Release Dir   : $remoteDeployRoot/releases/$releaseName
+Active Link   : $remoteDeployRoot/current  ->  releases/$releaseName
+Release Notes : $releaseNotesRef
+============================================================
+
+POST-DEPLOYMENT VERIFICATION
+------------------------------------------------------------
+1. Open  : https://reflecto-ai.onreflections.com/
+2. Action : Click "Sign in with Reflections SSO"
+3. Credentials : Enter your Reflections SSO email and password
+4. 2FA (if enabled) : Enter the verification code sent to your phone
+5. Verify that the app loads correctly and key features work as expected
+============================================================
+"@
+    Add-Content -LiteralPath $script:logPath -Value $logSummary -Encoding UTF8
+    $deploymentSuccess = $true
+
+    Write-Log "Copying deployment log to remote server."
+    Invoke-External -FilePath $scpCommand -Arguments (
+      $scpBaseArgs + @(
+        $script:logPath,
+        "${remoteUser}@${remoteHost}:$remoteDeployRoot/releases/$releaseName/deployment.log"
+      )
+    )
+
+    if ($releaseNotesRef -ne "skipped" -and (Test-Path -LiteralPath $releaseNotesLocalDir)) {
+      Write-Log "Uploading release notes to remote server."
+      Invoke-External -FilePath $scpCommand -Arguments (
+        @("-r") + $scpBaseArgs + @(
+          $releaseNotesLocalDir,
+          "${remoteUser}@${remoteHost}:$remoteDeployRoot/releases/$releaseName/release_notes"
+        )
+      )
+    }
   }
 
   Write-Log "Deployment flow finished for '$Environment'."
 }
 finally {
+  if (-not $deploymentSuccess -and $script:logPath -and (Test-Path -LiteralPath $script:logPath)) {
+    $deploymentEnd = Get-Date
+    $duration = $deploymentEnd - $deploymentStart
+    $durationStr = "{0}h {1}m {2}s" -f [int]$duration.TotalHours, $duration.Minutes, $duration.Seconds
+    $errorSummary = @"
+
+============================================================
+DEPLOYMENT SUMMARY
+Status       : FAILED
+Start Time   : $($deploymentStart.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ"))
+End Time     : $($deploymentEnd.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ"))
+Duration     : $durationStr
+Branch       : $currentBranch
+Commit       : $shortCommit
+Release      : $releaseName
+============================================================
+"@
+    Add-Content -LiteralPath $script:logPath -Value $errorSummary -Encoding UTF8
+  }
   Remove-Item -LiteralPath $payloadTarPath -Force -ErrorAction SilentlyContinue
   Remove-Item -LiteralPath $askPassPath -Force -ErrorAction SilentlyContinue
   Remove-Item -LiteralPath $archivePath -Force -ErrorAction SilentlyContinue

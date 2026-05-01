@@ -14,11 +14,10 @@ export const errorHandler = (err: any, req: Request, res: Response, next: NextFu
   console.error("Error:", err);
 
   const statusCode = err.statusCode || 500;
-  const message = err.message || 'Internal Server Error';
+  // Only surface the message for intentional AppError throws; all other errors
+  // (DB/ORM, third-party, unexpected) get a generic message so internals never leak.
+  const message = err instanceof AppError ? err.message : 'Internal Server Error';
 
-  // Handle Drizzle/Postgres errors if identified specifically, otherwise generic
-  // In a real app we might parse specific DB error codes here
-  
   const response: any = {
     status: 'error',
     statusCode,
