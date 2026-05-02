@@ -3,14 +3,15 @@
 import type React from "react"
 
 import { useEffect, useState } from "react"
-import { useRouter, usePathname } from "next/navigation"
+import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
-import { Award, LogOut, ShieldAlert } from "lucide-react"
-import { useToast } from "@/hooks/use-toast"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import { Award, FileText, LogOut, ShieldAlert } from "lucide-react"
 import { useAuth } from "@/hooks/use-auth" // Use new hook
 import { AppSidebar } from "@/components/ui/app-sidebar"
+import { ReleaseNotesViewer } from "@/components/release-notes-viewer"
 
 export default function DashboardLayout({
   children,
@@ -18,8 +19,7 @@ export default function DashboardLayout({
   children: React.ReactNode
 }) {
   const router = useRouter()
-  const pathname = usePathname()
-  const { toast } = useToast()
+  const [releaseNotesOpen, setReleaseNotesOpen] = useState(false)
   
   // Use Azure Auth Hook
   const { user, isAuthenticated, isLoading, error, logout } = useAuth()
@@ -37,13 +37,6 @@ export default function DashboardLayout({
 
   const handleLogout = () => {
     logout()
-  }
-
-  const isActivePath = (path: string) => {
-    if (path === "/dashboard") {
-      return pathname === "/dashboard"
-    }
-    return pathname.startsWith(path)
   }
 
   if (error) {
@@ -107,6 +100,21 @@ export default function DashboardLayout({
                 <p className="text-sm text-muted-foreground">Talent Intelligence Platform</p>
                 </div>
             </Link>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-9 w-9 text-muted-foreground hover:text-foreground"
+                  aria-label="Release Notes"
+                  onClick={() => setReleaseNotesOpen(true)}
+                >
+                  <FileText className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">Release Notes</TooltipContent>
+            </Tooltip>
           </div>
 
           <div className="flex items-center gap-4">
@@ -135,6 +143,20 @@ export default function DashboardLayout({
             </div>
          </main>
       </div>
+
+      <Dialog open={releaseNotesOpen} onOpenChange={setReleaseNotesOpen}>
+        <DialogContent className="flex max-h-[92vh] w-[calc(100vw-2rem)] max-w-[1200px] flex-col overflow-hidden">
+          <DialogHeader>
+            <DialogTitle>Release Notes</DialogTitle>
+            <DialogDescription>
+              Review the latest customer and developer release notes.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="min-h-0 overflow-y-auto pr-1">
+            <ReleaseNotesViewer compact />
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
