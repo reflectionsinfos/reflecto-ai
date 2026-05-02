@@ -1,19 +1,62 @@
 ﻿{
-    "latest":  "prod-20260502003641-65e45aa",
+    "latest":  "prod-20260502014304-9a72ad6",
     "current":  {
-                    "release":  "prod-20260502003641-65e45aa",
+                    "release":  "prod-20260502014304-9a72ad6",
                     "releaseNumber":  "2026.05.02",
-                    "build":  "20260502003641-65e45aa",
-                    "date":  "2026-05-02T00:36:44Z",
+                    "build":  "20260502014304-9a72ad6",
+                    "date":  "2026-05-02T01:43:08Z",
                     "branch":  "feature/kudos-card-enhancements",
-                    "commit":  "65e45aa",
-                    "customer":  null,
-                    "developer":  null,
+                    "commit":  "9a72ad6",
+                    "customer":  "/release-notes/prod-20260502014304-9a72ad6/release_notes_feature_kudos_card_enhancements_2026-05-02_customer.html",
+                    "developer":  "/release-notes/prod-20260502014304-9a72ad6/release_notes_feature_kudos_card_enhancements_2026-05-02_developer.html",
                     "files":  [
-
+                                  "/release-notes/prod-20260502014304-9a72ad6/release_notes_feature_kudos_card_enhancements_2026-05-02_customer.html",
+                                  "/release-notes/prod-20260502014304-9a72ad6/release_notes_feature_kudos_card_enhancements_2026-05-02_developer.html"
                               ]
                 },
     "releases":  [
+                     {
+                         "release":  "prod-20260502014304-9a72ad6",
+                         "releaseNumber":  "2026.05.02",
+                         "build":  "20260502014304-9a72ad6",
+                         "date":  "2026-05-02T01:43:08Z",
+                         "branch":  "feature/kudos-card-enhancements",
+                         "commit":  "9a72ad6",
+                         "customer":  "/release-notes/prod-20260502014304-9a72ad6/release_notes_feature_kudos_card_enhancements_2026-05-02_customer.html",
+                         "developer":  "/release-notes/prod-20260502014304-9a72ad6/release_notes_feature_kudos_card_enhancements_2026-05-02_developer.html",
+                         "files":  [
+                                       "/release-notes/prod-20260502014304-9a72ad6/release_notes_feature_kudos_card_enhancements_2026-05-02_customer.html",
+                                       "/release-notes/prod-20260502014304-9a72ad6/release_notes_feature_kudos_card_enhancements_2026-05-02_developer.html"
+                                   ]
+                     },
+                     {
+                         "release":  "prod-20260502012825-ed65191",
+                         "releaseNumber":  "2026.05.02",
+                         "build":  "20260502012825-ed65191",
+                         "date":  "2026-05-02T01:28:27Z",
+                         "branch":  "feature/kudos-card-enhancements",
+                         "commit":  "ed65191",
+                         "customer":  "/release-notes/prod-20260502012825-ed65191/release_notes_feature_kudos_card_enhancements_2026-05-02_customer.html",
+                         "developer":  "/release-notes/prod-20260502012825-ed65191/release_notes_feature_kudos_card_enhancements_2026-05-02_developer.html",
+                         "files":  [
+                                       "/release-notes/prod-20260502012825-ed65191/release_notes_feature_kudos_card_enhancements_2026-05-02_customer.html",
+                                       "/release-notes/prod-20260502012825-ed65191/release_notes_feature_kudos_card_enhancements_2026-05-02_developer.html"
+                                   ]
+                     },
+                     {
+                         "release":  "prod-20260502005804-57651a7",
+                         "releaseNumber":  "2026.05.02",
+                         "build":  "20260502005804-57651a7",
+                         "date":  "2026-05-02T00:58:08Z",
+                         "branch":  "feature/kudos-card-enhancements",
+                         "commit":  "57651a7",
+                         "customer":  "/release-notes/prod-20260502005804-57651a7/release_notes_feature_kudos_card_enhancements_2026-05-02_customer.html",
+                         "developer":  "/release-notes/prod-20260502005804-57651a7/release_notes_feature_kudos_card_enhancements_2026-05-02_developer.html",
+                         "files":  [
+                                       "/release-notes/prod-20260502005804-57651a7/release_notes_feature_kudos_card_enhancements_2026-05-02_customer.html",
+                                       "/release-notes/prod-20260502005804-57651a7/release_notes_feature_kudos_card_enhancements_2026-05-02_developer.html"
+                                   ]
+                     },
                      {
                          "release":  "prod-20260502003641-65e45aa",
                          "releaseNumber":  "2026.05.02",

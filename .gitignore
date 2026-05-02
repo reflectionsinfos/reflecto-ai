@@ -49,7 +49,9 @@ apps/frontend/dist/
 
 # Deployment artifacts
 deployment/deployment.log
+deployment/deployment-*.log
 deployment/release_notes/
+nul
 
 # Claude Code memory
 .claude/
