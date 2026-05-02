@@ -1,1 +1,0 @@
-ALTER TABLE "reflecto-ai-2"."recognition_events" ADD COLUMN "image_blob" text;
