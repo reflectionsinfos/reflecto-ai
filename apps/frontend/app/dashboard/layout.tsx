@@ -193,7 +193,7 @@ export default function DashboardLayout({
       </div>
 
       <Dialog open={releaseNotesOpen} onOpenChange={setReleaseNotesOpen}>
-        <DialogContent className="flex h-[92vh] w-[95vw] max-w-[1600px] flex-col gap-0 overflow-hidden p-0">
+        <DialogContent className="flex h-[94vh] w-[98vw] max-w-[1900px] flex-col gap-0 overflow-hidden p-0">
           <DialogHeader className="shrink-0 border-b px-5 py-3 pr-14">
             <div className="flex items-center gap-2.5">
               <DialogTitle>Release Info</DialogTitle>
