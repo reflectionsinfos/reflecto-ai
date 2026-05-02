@@ -117,7 +117,7 @@ export function ReleaseNotesViewer({ compact = false }: ReleaseNotesViewerProps)
       )}
     >
       {/* ── Left sidebar: deployment list ─────────────────────────── */}
-      <div className="flex w-64 shrink-0 flex-col border-r bg-muted/20">
+      <div className="flex w-52 shrink-0 flex-col border-r bg-muted/20">
         <div className="border-b px-3 py-2.5">
           <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
             Deployments
