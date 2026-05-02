@@ -9,6 +9,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 
 type ReleaseNoteEntry = {
   release: string
+  releaseNumber?: string
+  build?: string
   date?: string
   branch?: string
   commit?: string
@@ -19,6 +21,7 @@ type ReleaseNoteEntry = {
 
 type ReleaseNotesManifest = {
   latest?: string | null
+  current?: ReleaseNoteEntry | null
   releases?: ReleaseNoteEntry[]
 }
 
@@ -52,7 +55,7 @@ export function ReleaseNotesViewer({ compact = false }: ReleaseNotesViewerProps)
         if (!mounted) return
 
         setManifest(data)
-        const initialRelease = data.latest || data.releases?.[0]?.release || ""
+        const initialRelease = data.current?.release || data.latest || data.releases?.[0]?.release || ""
         setSelectedRelease(initialRelease)
       } catch (err) {
         if (!mounted) return
@@ -116,9 +119,33 @@ export function ReleaseNotesViewer({ compact = false }: ReleaseNotesViewerProps)
     <div className="space-y-4">
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-base">Release</CardTitle>
+          <CardTitle className="text-base">Current Release</CardTitle>
         </CardHeader>
-        <CardContent className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <CardContent className="space-y-4">
+          {activeRelease ? (
+            <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+              <div>
+                <div className="text-2xl font-semibold tracking-tight">
+                  {activeRelease.releaseNumber || activeRelease.release}
+                </div>
+                <div className="mt-1 text-sm text-muted-foreground">
+                  Build {activeRelease.build || activeRelease.release}
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+                {activeRelease.date ? (
+                  <Badge variant="secondary" className="gap-1">
+                    <CalendarDays className="h-3.5 w-3.5" />
+                    {new Date(activeRelease.date).toLocaleString()}
+                  </Badge>
+                ) : null}
+                {activeRelease.branch ? <Badge variant="outline">{activeRelease.branch}</Badge> : null}
+                {activeRelease.commit ? <Badge variant="outline">{activeRelease.commit}</Badge> : null}
+              </div>
+            </div>
+          ) : null}
+
           <div className="flex flex-wrap gap-2">
             {releases.map((release) => (
               <Button
@@ -127,38 +154,28 @@ export function ReleaseNotesViewer({ compact = false }: ReleaseNotesViewerProps)
                 size="sm"
                 onClick={() => setSelectedRelease(release.release)}
               >
-                {release.release}
+                {release.releaseNumber || release.release}
               </Button>
             ))}
           </div>
-
-          {activeRelease ? (
-            <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-              {activeRelease.date ? (
-                <Badge variant="secondary" className="gap-1">
-                  <CalendarDays className="h-3.5 w-3.5" />
-                  {new Date(activeRelease.date).toLocaleString()}
-                </Badge>
-              ) : null}
-              {activeRelease.branch ? <Badge variant="outline">{activeRelease.branch}</Badge> : null}
-              {activeRelease.commit ? <Badge variant="outline">{activeRelease.commit}</Badge> : null}
-            </div>
-          ) : null}
         </CardContent>
       </Card>
 
-      <div className="flex flex-wrap gap-2">
-        {noteViews.map((view) => (
-          <Button
-            key={view.url}
-            variant={selectedUrl === view.url ? "default" : "outline"}
-            size="sm"
-            onClick={() => setSelectedUrl(view.url)}
-          >
-            <view.icon className="mr-2 h-4 w-4" />
-            {view.label}
-          </Button>
-        ))}
+      <div className="space-y-2">
+        <h2 className="text-base font-semibold">Release Notes</h2>
+        <div className="flex flex-wrap gap-2">
+          {noteViews.map((view) => (
+            <Button
+              key={view.url}
+              variant={selectedUrl === view.url ? "default" : "outline"}
+              size="sm"
+              onClick={() => setSelectedUrl(view.url)}
+            >
+              <view.icon className="mr-2 h-4 w-4" />
+              {view.label}
+            </Button>
+          ))}
+        </div>
       </div>
 
       <Card>

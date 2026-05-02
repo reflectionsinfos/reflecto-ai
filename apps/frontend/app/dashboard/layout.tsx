@@ -8,10 +8,22 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
-import { Award, FileText, LogOut, ShieldAlert } from "lucide-react"
+import { Award, LogOut, ShieldAlert } from "lucide-react"
 import { useAuth } from "@/hooks/use-auth" // Use new hook
 import { AppSidebar } from "@/components/ui/app-sidebar"
 import { ReleaseNotesViewer } from "@/components/release-notes-viewer"
+
+type ReleaseNotesManifest = {
+  current?: {
+    releaseNumber?: string
+  } | null
+  latest?: string | null
+  releases?: Array<{
+    release?: string
+    releaseNumber?: string
+    date?: string
+  }>
+}
 
 export default function DashboardLayout({
   children,
@@ -20,6 +32,7 @@ export default function DashboardLayout({
 }) {
   const router = useRouter()
   const [releaseNotesOpen, setReleaseNotesOpen] = useState(false)
+  const [releaseNumber, setReleaseNumber] = useState("Release --")
   
   // Use Azure Auth Hook
   const { user, isAuthenticated, isLoading, error, logout } = useAuth()
@@ -34,6 +47,41 @@ export default function DashboardLayout({
         router.push("/")
     }
   }, [isLoading, isAuthenticated, router])
+
+  useEffect(() => {
+    let mounted = true
+
+    async function loadReleaseNumber() {
+      try {
+        const response = await fetch("/release-notes/manifest.json", { cache: "no-store" })
+        if (!response.ok) return
+
+        const data = (await response.json()) as ReleaseNotesManifest
+        const currentRelease =
+          data.current ||
+          data.releases?.find((release) => release.release === data.latest) ||
+          data.releases?.[0]
+
+        if (!mounted || !currentRelease) return
+
+        if (currentRelease.releaseNumber) {
+          setReleaseNumber(currentRelease.releaseNumber)
+        } else if (currentRelease.date) {
+          const date = new Date(currentRelease.date)
+          if (!Number.isNaN(date.getTime())) {
+            setReleaseNumber(date.toISOString().slice(0, 10).replace(/-/g, "."))
+          }
+        }
+      } catch {
+        // Keep the placeholder when release metadata is not published yet.
+      }
+    }
+
+    loadReleaseNumber()
+    return () => {
+      mounted = false
+    }
+  }, [])
 
   const handleLogout = () => {
     logout()
@@ -92,29 +140,27 @@ export default function DashboardLayout({
         <div className="max-w-[1920px] mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Link href="/dashboard" className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center shadow-md">
+              <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center shadow-md">
                 <Award className="w-5 h-5 text-primary-foreground" />
-                </div>
-                <div>
-                <h1 className="text-xl font-bold text-foreground">Reflecto</h1>
-                <p className="text-sm text-muted-foreground">Talent Intelligence Platform</p>
-                </div>
+              </div>
             </Link>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="h-9 w-9 text-muted-foreground hover:text-foreground"
-                  aria-label="Release Notes"
-                  onClick={() => setReleaseNotesOpen(true)}
-                >
-                  <FileText className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom">Release Notes</TooltipContent>
-            </Tooltip>
+            <div>
+              <Link href="/dashboard" className="text-xl font-bold text-foreground">
+                Reflecto
+              </Link>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    className="block text-sm text-muted-foreground transition-colors hover:text-foreground"
+                    onClick={() => setReleaseNotesOpen(true)}
+                  >
+                    {releaseNumber}
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">Release Info</TooltipContent>
+              </Tooltip>
+            </div>
           </div>
 
           <div className="flex items-center gap-4">
@@ -147,9 +193,9 @@ export default function DashboardLayout({
       <Dialog open={releaseNotesOpen} onOpenChange={setReleaseNotesOpen}>
         <DialogContent className="flex max-h-[92vh] w-[calc(100vw-2rem)] max-w-[1200px] flex-col overflow-hidden">
           <DialogHeader>
-            <DialogTitle>Release Notes</DialogTitle>
+            <DialogTitle>Release Info</DialogTitle>
             <DialogDescription>
-              Review the latest customer and developer release notes.
+              Review the current release, build, and customer/developer release notes.
             </DialogDescription>
           </DialogHeader>
           <div className="min-h-0 overflow-y-auto pr-1">

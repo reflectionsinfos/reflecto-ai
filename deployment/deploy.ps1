@@ -156,10 +156,12 @@ function Update-ReleaseNotesManifest {
   param(
     [Parameter(Mandatory = $true)] [string]$ReleaseNotesPublicRoot,
     [Parameter(Mandatory = $true)] [string]$ReleaseName,
+    [Parameter(Mandatory = $true)] [string]$ReleaseNumber,
+    [Parameter(Mandatory = $true)] [string]$BuildNumber,
     [Parameter(Mandatory = $true)] [string]$ReleaseDateUtc,
     [Parameter(Mandatory = $true)] [string]$Branch,
     [Parameter(Mandatory = $true)] [string]$Commit,
-    [Parameter(Mandatory = $true)] [System.IO.FileInfo[]]$HtmlFiles
+    [System.IO.FileInfo[]]$HtmlFiles = @()
   )
 
   New-DirectoryIfMissing -Path $ReleaseNotesPublicRoot
@@ -199,6 +201,8 @@ function Update-ReleaseNotesManifest {
 
   $currentEntry = [pscustomobject]@{
     release = $ReleaseName
+    releaseNumber = $ReleaseNumber
+    build = $BuildNumber
     date = $ReleaseDateUtc
     branch = $Branch
     commit = $Commit
@@ -210,6 +214,7 @@ function Update-ReleaseNotesManifest {
   $releases = @($currentEntry) + @($existingReleases | Where-Object { $_.release -ne $ReleaseName })
   $manifestOut = [pscustomobject]@{
     latest = $ReleaseName
+    current = $currentEntry
     releases = $releases
   }
 
@@ -221,6 +226,8 @@ function Publish-ReleaseNotesToFrontend {
     [Parameter(Mandatory = $true)] [string]$ReleaseNotesLocalDir,
     [Parameter(Mandatory = $true)] [string]$FrontendPublicRoot,
     [Parameter(Mandatory = $true)] [string]$ReleaseName,
+    [Parameter(Mandatory = $true)] [string]$ReleaseNumber,
+    [Parameter(Mandatory = $true)] [string]$BuildNumber,
     [Parameter(Mandatory = $true)] [string]$ReleaseDateUtc,
     [Parameter(Mandatory = $true)] [string]$Branch,
     [Parameter(Mandatory = $true)] [string]$Commit
@@ -246,6 +253,8 @@ function Publish-ReleaseNotesToFrontend {
   Update-ReleaseNotesManifest `
     -ReleaseNotesPublicRoot $releaseNotesPublicRoot `
     -ReleaseName $ReleaseName `
+    -ReleaseNumber $ReleaseNumber `
+    -BuildNumber $BuildNumber `
     -ReleaseDateUtc $ReleaseDateUtc `
     -Branch $Branch `
     -Commit $Commit `
@@ -763,6 +772,8 @@ if ($Mode -ne "rollback") {
 }
 
 $script:releaseName       = "$Environment-$timestamp-$shortCommit"
+$script:releaseNumber     = (Get-Date).ToUniversalTime().ToString("yyyy.MM.dd")
+$script:buildNumber       = "$timestamp-$shortCommit"
 $script:archiveName       = "reflecto-ai-$($script:releaseName).tar.gz"
 $script:remoteArchivePath = "/tmp/$($script:archiveName)"
 $knownHostsPath           = Join-Path $scriptDir ".known_hosts_$Environment"
@@ -782,6 +793,8 @@ Deploy Ref   : $deployRef
 Branch       : $currentBranch
 Commit       : $shortCommit
 Release Name : $($script:releaseName)
+Release No.  : $($script:releaseNumber)
+Build No.    : $($script:buildNumber)
 Compose File : $($script:composeFile)
 Source Path  : $($script:localSourcePath)
 Retain Rel.  : $($script:releaseRetention)
@@ -905,12 +918,29 @@ Deploy Root  : $($script:remoteDeployRoot)
 
       $releaseNotesLocalDir = Join-Path $scriptDir "release_notes\$($script:releaseName)"
       $releaseNotesRef      = "skipped"
+      $releaseInfoPublished = $false
       $releaseNotesPublished = $false
+      $frontendPublicRoot = Join-Path $script:localSourcePath "apps\frontend\public"
+      $releaseNotesPublicRoot = Join-Path $frontendPublicRoot "release-notes"
+
+      if ($Mode -eq "auto") {
+        Update-ReleaseNotesManifest `
+          -ReleaseNotesPublicRoot $releaseNotesPublicRoot `
+          -ReleaseName $script:releaseName `
+          -ReleaseNumber $script:releaseNumber `
+          -BuildNumber $script:buildNumber `
+          -ReleaseDateUtc ($deploymentStart.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")) `
+          -Branch $currentBranch `
+          -Commit $shortCommit `
+          -HtmlFiles @()
+        $releaseInfoPublished = $true
+        $releaseNotesRef = "/dashboard/release-notes"
+        Write-Log "Release info published to app assets at apps/frontend/public/release-notes/manifest.json"
+      }
 
       # ---- Release notes (optional, auto only; generated before packaging so the app can serve them) ----
       if ($Mode -eq "auto" -and $releaseNotesEnabled -eq "true") {
         $releaseAgentPython = Join-Path $releaseAgentDir ".venv\Scripts\python.exe"
-        $frontendPublicRoot = Join-Path $script:localSourcePath "apps\frontend\public"
 
         if (-not (Test-Path -LiteralPath $releaseAgentPython)) {
           Write-Log "Release agent venv not found at $releaseAgentPython - skipping release notes." "WARN"
@@ -935,6 +965,8 @@ Deploy Root  : $($script:remoteDeployRoot)
                 -ReleaseNotesLocalDir $releaseNotesLocalDir `
                 -FrontendPublicRoot $frontendPublicRoot `
                 -ReleaseName $script:releaseName `
+                -ReleaseNumber $script:releaseNumber `
+                -BuildNumber $script:buildNumber `
                 -ReleaseDateUtc ($deploymentStart.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")) `
                 -Branch $currentBranch `
                 -Commit $shortCommit
@@ -1006,7 +1038,7 @@ Deploy Root  : $($script:remoteDeployRoot)
         }
       }
 
-      if ($releaseNotesPublished) {
+      if ($releaseInfoPublished -or $releaseNotesPublished) {
         $releaseNotesSourceRoot = Join-Path $script:localSourcePath "apps/frontend/public/release-notes"
         $releaseNotesStagingRoot = Join-Path $stagingRoot "apps/frontend/public/release-notes"
         New-DirectoryIfMissing -Path $releaseNotesStagingRoot
