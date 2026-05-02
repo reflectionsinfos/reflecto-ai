@@ -5,6 +5,7 @@ import type React from "react"
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
@@ -16,6 +17,7 @@ import { ReleaseNotesViewer } from "@/components/release-notes-viewer"
 type ReleaseNotesManifest = {
   current?: {
     releaseNumber?: string
+    date?: string
   } | null
   latest?: string | null
   releases?: Array<{
@@ -191,14 +193,21 @@ export default function DashboardLayout({
       </div>
 
       <Dialog open={releaseNotesOpen} onOpenChange={setReleaseNotesOpen}>
-        <DialogContent className="flex max-h-[92vh] w-[calc(100vw-2rem)] max-w-[1200px] flex-col overflow-hidden">
-          <DialogHeader>
-            <DialogTitle>Release Info</DialogTitle>
+        <DialogContent className="flex h-[92vh] w-[95vw] max-w-[1600px] flex-col gap-0 overflow-hidden p-0">
+          <DialogHeader className="shrink-0 border-b px-5 py-3 pr-14">
+            <div className="flex items-center gap-2.5">
+              <DialogTitle>Release Info</DialogTitle>
+              {releaseNumber !== "Release --" && (
+                <Badge variant="secondary" className="px-2 font-mono text-sm">
+                  {releaseNumber}
+                </Badge>
+              )}
+            </div>
             <DialogDescription>
-              Review the current release, build, and customer/developer release notes.
+              Browse deployments and review customer or developer release notes.
             </DialogDescription>
           </DialogHeader>
-          <div className="min-h-0 overflow-y-auto pr-1">
+          <div className="min-h-0 flex-1 overflow-hidden">
             <ReleaseNotesViewer compact />
           </div>
         </DialogContent>
