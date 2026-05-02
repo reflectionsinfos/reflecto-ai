@@ -233,7 +233,7 @@ function Publish-ReleaseNotesToFrontend {
     [Parameter(Mandatory = $true)] [string]$Commit
   )
 
-  $htmlFiles = @(Get-ChildItem -LiteralPath $ReleaseNotesLocalDir -Filter "*.html" -File -ErrorAction SilentlyContinue)
+  $htmlFiles = @(Get-ChildItem -LiteralPath $ReleaseNotesLocalDir -Filter "*.html" -File -Recurse -ErrorAction SilentlyContinue)
   if ($htmlFiles.Count -eq 0) {
     Write-Log "Release notes did not contain HTML files; skipping app publication." "WARN"
     return $false
