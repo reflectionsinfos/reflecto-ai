@@ -1,5 +1,31 @@
-{
-  "latest": null,
-  "current": null,
-  "releases": []
+﻿{
+    "latest":  "prod-20260502003641-65e45aa",
+    "current":  {
+                    "release":  "prod-20260502003641-65e45aa",
+                    "releaseNumber":  "2026.05.02",
+                    "build":  "20260502003641-65e45aa",
+                    "date":  "2026-05-02T00:36:44Z",
+                    "branch":  "feature/kudos-card-enhancements",
+                    "commit":  "65e45aa",
+                    "customer":  null,
+                    "developer":  null,
+                    "files":  [
+
+                              ]
+                },
+    "releases":  [
+                     {
+                         "release":  "prod-20260502003641-65e45aa",
+                         "releaseNumber":  "2026.05.02",
+                         "build":  "20260502003641-65e45aa",
+                         "date":  "2026-05-02T00:36:44Z",
+                         "branch":  "feature/kudos-card-enhancements",
+                         "commit":  "65e45aa",
+                         "customer":  null,
+                         "developer":  null,
+                         "files":  [
+
+                                   ]
+                     }
+                 ]
 }
