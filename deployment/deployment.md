@@ -372,27 +372,45 @@ and at least one LLM API key is configured in `env.prod`.
 | `release_notes_<ver>_<date>_customer.md` | Same, Markdown format |
 
 The agent diffs the current branch against `RELEASE_NOTES_PREVIOUS_BRANCH` (default `main`).
-The LLM provider (Groq, Gemini, or Claude) is selected inside the release agent's own
-`.env.local` at `C:\projects\nexus-ai\ai-agents\release\.env.local`.
+LLM API keys are injected as environment variables from `env.prod` — no separate `.env` file
+in the agent directory is needed for deployment.
 
-**How `deploy.ps1` calls the agent:**
+---
 
-`deploy.ps1` invokes `tools/release-notes.ps1` — a thin wrapper in this repo that
-calls the nexus-ai release agent CLI. No knowledge of venv or Python paths is needed
-in `deploy.ps1`; the wrapper owns those internals.
+### How `deploy.ps1` calls the agent
 
-**One-time setup for the release agent:**
+`deploy.ps1` reads the LLM keys from `env.prod`, sets them as environment variables, then
+calls `tools/release-notes.ps1`, which calls `tools/release-notes.exe` — a self-contained
+binary with no Python or venv dependency.
 
-```powershell
-cd C:\projects\nexus-ai\ai-agents\release
-python -m venv .venv
-.venv\Scripts\pip install -r requirements.txt
-.venv\Scripts\python.exe -m pip install -e .
+```
+deploy.ps1  →  tools/release-notes.ps1  →  tools/release-notes.exe
+                (sets env vars)              (standalone binary, 25 MB)
 ```
 
-After setup, you can also run the agent directly for testing:
+---
+
+### env.prod keys for release notes
+
+```env
+RELEASE_NOTES_ENABLED="true"
+RELEASE_NOTES_PREVIOUS_BRANCH="main"
+
+# Set at least one LLM key — the agent picks whichever is configured
+RELEASE_AGENT_GROQ_API_KEY="gsk_..."
+RELEASE_AGENT_GEMINI_API_KEY=""
+RELEASE_AGENT_ANTHROPIC_API_KEY=""
+```
+
+See `tools/.env.example` for the full reference.
+
+---
+
+### Run release notes manually (outside of deploy)
 
 ```powershell
+# Windows
+$env:GROQ_API_KEY = "gsk_..."
 .\tools\release-notes.ps1 run `
   --current-release  feature/kudos-card-enhancements `
   --previous-release main `
@@ -400,6 +418,76 @@ After setup, you can also run the agent directly for testing:
   --no-approval `
   --output-dir       C:\tmp\release-notes-test
 ```
+
+```bash
+# Linux / macOS
+export GROQ_API_KEY="gsk_..."
+./tools/release-notes.sh run \
+  --current-release  feature/kudos-card-enhancements \
+  --previous-release main \
+  --repos            /path/to/reflecto-ai \
+  --no-approval \
+  --output-dir       /tmp/release-notes-test
+```
+
+---
+
+### Using the release notes agent in any project
+
+The agent is packaged as a standalone binary — no Python installation required on the consuming project.
+
+**Step 1 — Copy the wrapper scripts**
+
+```
+tools/release-notes.ps1   ← Windows wrapper
+tools/release-notes.sh    ← Linux / macOS wrapper
+```
+
+**Step 2 — Get the binary**
+
+The binary is not committed to git (25 MB). Build it once from the nexus-ai agent and copy it in:
+
+```powershell
+# Build (Windows)
+cd C:\projects\nexus-ai\ai-agents\release
+.venv\Scripts\pyinstaller --onefile --name release-notes --distpath dist agent/__main__.py
+copy dist\release-notes.exe C:\your-project\tools\
+```
+
+```bash
+# Build (Linux / macOS)
+cd /path/to/nexus-ai/ai-agents/release
+.venv/bin/pyinstaller --onefile --name release-notes --distpath dist agent/__main__.py
+cp dist/release-notes /path/to/your-project/tools/
+```
+
+> Rebuild the binary whenever the nexus-ai release agent is updated.
+
+**Step 3 — Configure env keys**
+
+Copy `tools/.env.example` to `tools/.env.local` and fill in your LLM key:
+
+```env
+GROQ_API_KEY=gsk_...
+# or GEMINI_API_KEY / ANTHROPIC_API_KEY
+```
+
+**Step 4 — Run**
+
+```powershell
+# Windows — set env vars then call the wrapper
+$env:GROQ_API_KEY = "gsk_..."
+.\tools\release-notes.ps1 run --current-release <branch> --previous-release main --repos <path>
+```
+
+```bash
+# Linux / macOS
+export GROQ_API_KEY="gsk_..."
+./tools/release-notes.sh run --current-release <branch> --previous-release main --repos <path>
+```
+
+Or integrate into a deploy script exactly as `deploy.ps1` does — read keys from your env file,
+set them as environment variables, then call the wrapper.
 
 ---
 

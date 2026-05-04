@@ -244,6 +244,62 @@ See [Environment Configuration](#environment-configuration) above for the full r
 
 For full production deployment instructions — deploy modes, rollback, manual steps, remote directory structure, and release notes — see [deployment/deployment.md](./deployment/deployment.md).
 
+### Release Notes Agent (`tools/`)
+
+An AI-powered release notes generator is included as a standalone binary — no Python required.
+
+| File | Purpose |
+|---|---|
+| `tools/release-notes.ps1` | Windows wrapper — call this from PowerShell |
+| `tools/release-notes.sh` | Linux / macOS wrapper |
+| `tools/release-notes.exe` | Standalone binary (gitignored — build locally, see below) |
+| `tools/.env.example` | Template for LLM API key configuration |
+
+**Quick start (Windows):**
+
+```powershell
+# 1. Copy your LLM key into tools/.env.local (or set as env var)
+$env:GROQ_API_KEY = "gsk_..."
+
+# 2. Run
+.\tools\release-notes.ps1 run `
+  --current-release  feature/my-branch `
+  --previous-release main `
+  --repos            C:\projects\reflecto-ai `
+  --no-approval `
+  --output-dir       C:\tmp\release-notes
+```
+
+**Quick start (Linux / macOS):**
+
+```bash
+export GROQ_API_KEY="gsk_..."
+./tools/release-notes.sh run \
+  --current-release  feature/my-branch \
+  --previous-release main \
+  --repos            /path/to/reflecto-ai \
+  --no-approval \
+  --output-dir       /tmp/release-notes
+```
+
+**Build / rebuild the binary** (required once; rebuild after nexus-ai agent updates):
+
+```powershell
+# Windows
+cd C:\projects\nexus-ai\ai-agents\release
+.venv\Scripts\pyinstaller --onefile --name release-notes --distpath dist agent/__main__.py
+copy dist\release-notes.exe C:\projects\reflecto-ai\tools\
+```
+
+```bash
+# Linux / macOS
+cd /path/to/nexus-ai/ai-agents/release
+.venv/bin/pyinstaller --onefile --name release-notes --distpath dist agent/__main__.py
+cp dist/release-notes /path/to/reflecto-ai/tools/
+```
+
+**Using in any project:** copy `tools/release-notes.ps1` + `tools/release-notes.sh`, drop in the binary, set one LLM key. See [deployment/deployment.md](./deployment/deployment.md#using-the-release-notes-agent-in-any-project) for the full guide.
+
 ### Quick deploy to production (Windows)
 
 ```powershell
