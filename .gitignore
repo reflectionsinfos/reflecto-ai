@@ -2,6 +2,10 @@
 node_modules/
 .pnpm-store
 
+# Tools — compiled binaries (build locally, do not commit)
+tools/release-notes.exe
+tools/release-notes
+
 # Testing
 coverage
 
