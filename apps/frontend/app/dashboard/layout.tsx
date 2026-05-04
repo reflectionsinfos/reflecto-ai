@@ -3,14 +3,29 @@
 import type React from "react"
 
 import { useEffect, useState } from "react"
-import { useRouter, usePathname } from "next/navigation"
+import { useRouter } from "next/navigation"
 import Link from "next/link"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { Award, LogOut, ShieldAlert } from "lucide-react"
-import { useToast } from "@/hooks/use-toast"
 import { useAuth } from "@/hooks/use-auth" // Use new hook
 import { AppSidebar } from "@/components/ui/app-sidebar"
+import { ReleaseNotesViewer } from "@/components/release-notes-viewer"
+
+type ReleaseNotesManifest = {
+  current?: {
+    releaseNumber?: string
+    date?: string
+  } | null
+  latest?: string | null
+  releases?: Array<{
+    release?: string
+    releaseNumber?: string
+    date?: string
+  }>
+}
 
 export default function DashboardLayout({
   children,
@@ -18,8 +33,8 @@ export default function DashboardLayout({
   children: React.ReactNode
 }) {
   const router = useRouter()
-  const pathname = usePathname()
-  const { toast } = useToast()
+  const [releaseNotesOpen, setReleaseNotesOpen] = useState(false)
+  const [releaseNumber, setReleaseNumber] = useState("Release --")
   
   // Use Azure Auth Hook
   const { user, isAuthenticated, isLoading, error, logout } = useAuth()
@@ -35,15 +50,43 @@ export default function DashboardLayout({
     }
   }, [isLoading, isAuthenticated, router])
 
+  useEffect(() => {
+    let mounted = true
+
+    async function loadReleaseNumber() {
+      try {
+        const response = await fetch("/release-notes/manifest.json", { cache: "no-store" })
+        if (!response.ok) return
+
+        const data = (await response.json()) as ReleaseNotesManifest
+        const currentRelease =
+          data.current ||
+          data.releases?.find((release) => release.release === data.latest) ||
+          data.releases?.[0]
+
+        if (!mounted || !currentRelease) return
+
+        if (currentRelease.releaseNumber) {
+          setReleaseNumber(currentRelease.releaseNumber)
+        } else if (currentRelease.date) {
+          const date = new Date(currentRelease.date)
+          if (!Number.isNaN(date.getTime())) {
+            setReleaseNumber(date.toISOString().slice(0, 10).replace(/-/g, "."))
+          }
+        }
+      } catch {
+        // Keep the placeholder when release metadata is not published yet.
+      }
+    }
+
+    loadReleaseNumber()
+    return () => {
+      mounted = false
+    }
+  }, [])
+
   const handleLogout = () => {
     logout()
-  }
-
-  const isActivePath = (path: string) => {
-    if (path === "/dashboard") {
-      return pathname === "/dashboard"
-    }
-    return pathname.startsWith(path)
   }
 
   if (error) {
@@ -99,14 +142,27 @@ export default function DashboardLayout({
         <div className="max-w-[1920px] mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Link href="/dashboard" className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center shadow-md">
+              <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center shadow-md">
                 <Award className="w-5 h-5 text-primary-foreground" />
-                </div>
-                <div>
-                <h1 className="text-xl font-bold text-foreground">Reflecto</h1>
-                <p className="text-sm text-muted-foreground">Talent Intelligence Platform</p>
-                </div>
+              </div>
             </Link>
+            <div>
+              <Link href="/dashboard" className="text-xl font-bold text-foreground">
+                Reflecto
+              </Link>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    className="block text-sm text-muted-foreground transition-colors hover:text-foreground"
+                    onClick={() => setReleaseNotesOpen(true)}
+                  >
+                    {releaseNumber}
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">Release Info</TooltipContent>
+              </Tooltip>
+            </div>
           </div>
 
           <div className="flex items-center gap-4">
@@ -135,6 +191,27 @@ export default function DashboardLayout({
             </div>
          </main>
       </div>
+
+      <Dialog open={releaseNotesOpen} onOpenChange={setReleaseNotesOpen}>
+        <DialogContent className="flex h-[94vh] w-[98vw] max-w-[98vw] sm:max-w-[98vw] flex-col gap-0 overflow-hidden p-0">
+          <DialogHeader className="shrink-0 border-b px-5 py-3 pr-14">
+            <div className="flex items-center gap-2.5">
+              <DialogTitle>Release Info</DialogTitle>
+              {releaseNumber !== "Release --" && (
+                <Badge variant="secondary" className="px-2 font-mono text-sm">
+                  {releaseNumber}
+                </Badge>
+              )}
+            </div>
+            <DialogDescription>
+              Browse deployments and review customer or developer release notes.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="min-h-0 flex-1 overflow-hidden">
+            <ReleaseNotesViewer compact />
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

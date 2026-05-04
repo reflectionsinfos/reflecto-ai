@@ -1,5 +1,4 @@
 "use client"
-
 import type React from "react"
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
@@ -34,6 +33,7 @@ import {
   ThumbsUp,
   Medal,
   Loader2,
+  Crop,
 } from "lucide-react"
 import { apiClient } from "@/lib/api-client"
 import { generateKudosCard, generateKudosCardToCanvas } from "@/lib/image-generator"
@@ -45,6 +45,7 @@ import { cardStorage, type StoredCard } from "@/lib/card-storage"
 import { RecipientSelector } from "@/components/recipient-selector"
 import type { GraphUser } from "@/lib/graph-service"
 import { AiMessageAssistant } from "@/components/ai-message-assistant"
+import { ImageCropperDialog } from "@/components/image-cropper-dialog"
 
 // ── Custom Template types & constants ────────────────────────────────────────
 
@@ -175,6 +176,8 @@ export default function DashboardPage() {
 
   const [showSuccessModal, setShowSuccessModal] = useState(false)
   const [generatedCardData, setGeneratedCardData] = useState<any>(null)
+
+  const [cropQueue, setCropQueue] = useState<{ index: number, url: string }[]>([])
 
   // ── Custom Template state ─────────────────────────────────────────────────
   const [savedCustomTemplates, setSavedCustomTemplates] = useState<SavedCustomTemplate[]>([])
@@ -446,7 +449,7 @@ export default function DashboardPage() {
         return;
     }
 
-    if (formData.recipientType === "team" && files.length > 15) {
+    if (formData.recipientType === "team" && formData.images.length + files.length > 15) {
         setErrors(prev => ({ ...prev, image: "Team cards support up to 15 images." }));
         return;
     }
@@ -469,12 +472,43 @@ export default function DashboardPage() {
     }
 
     // Update form
-    setFormData(prev => ({
-        ...prev,
-        images: fileList,
-        image: fileList[0] // Set first as legacy image for compatibility
-    }));
+    setFormData(prev => {
+        let newImages = [];
+        if (prev.recipientType === "team") {
+            newImages = [...prev.images, ...fileList].slice(0, 15);
+        } else {
+            newImages = fileList;
+        }
+        return {
+            ...prev,
+            images: newImages,
+            image: newImages[0] || null // Set first as legacy image for compatibility
+        };
+    });
     setErrors(prev => ({ ...prev, image: "" }));
+
+    // Auto-crop disabled based on user request. Users can still manually crop.
+    // setCropQueue(fileList.map((f, i) => ({ index: i, url: URL.createObjectURL(f) })));
+  }
+
+  const handleEditCrop = (index: number) => {
+    setCropQueue([{ index, url: URL.createObjectURL(formData.images[index]) }]);
+  };
+
+  const handleCropComplete = (croppedBlob: Blob) => {
+    if (cropQueue.length === 0) return;
+    const current = cropQueue[0];
+    
+    setFormData(prev => {
+      const newImages = [...prev.images];
+      // create new file from blob. Keep original name, but update type visually
+      const newFile = new File([croppedBlob], newImages[current.index].name, { type: 'image/jpeg' });
+      newImages[current.index] = newFile;
+      return { ...prev, images: newImages, image: newImages[0] };
+    });
+    
+    // Proceed to next in queue
+    setCropQueue(prev => prev.slice(1));
   }
 
   const handleRemoveImage = (index: number) => {
@@ -932,8 +966,17 @@ export default function DashboardPage() {
                                         {f.name}
                                     </span>
                                     <button
+                                        onClick={() => handleEditCrop(i)}
+                                        className="text-accent hover:text-primary transition-colors ml-1"
+                                        title="Crop Image"
+                                        type="button"
+                                    >
+                                        <Crop className="w-3 h-3" />
+                                    </button>
+                                    <button
                                         onClick={() => handleRemoveImage(i)}
-                                        className="text-accent hover:text-destructive transition-colors"
+                                        className="text-accent hover:text-destructive transition-colors ml-1"
+                                        title="Remove Image"
                                         type="button"
                                     >
                                         <X className="w-3 h-3" />
@@ -995,7 +1038,7 @@ export default function DashboardPage() {
                   </div>
                 </div>
 
-                <div className="bg-gradient-to-br from-card to-muted/20 rounded-xl border border-border p-6 aspect-[4/5] flex flex-col justify-between shadow-inner px-0 py-0 overflow-hidden relative">
+                <div className="bg-gradient-to-br from-card to-muted/20 rounded-xl border border-border p-6 aspect-video flex flex-col justify-between shadow-inner px-0 py-0 overflow-hidden relative">
                    {/* Live Sidebar Preview */}
                    {isPreviewLoading && (
                        <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/10 backdrop-blur-[1px]">
@@ -1164,7 +1207,7 @@ export default function DashboardPage() {
                 {customForm.backgroundImagePreview && (
                   <div className="mt-2 relative">
                     <img
-                      src={customForm.backgroundImagePreview}
+                      src={customForm.backgroundImagePreview || undefined}
                       alt="Preview"
                       className="w-full h-20 object-cover rounded-lg"
                     />
@@ -1254,6 +1297,13 @@ export default function DashboardPage() {
         </div>
       )}
       {/* ──────────────────────────────────────────────────────────────────── */}
+
+      <ImageCropperDialog
+        isOpen={cropQueue.length > 0}
+        imageSrc={cropQueue[0]?.url || null}
+        onClose={() => setCropQueue(prev => prev.slice(1))}
+        onCropComplete={handleCropComplete}
+      />
     </>
   )
 }

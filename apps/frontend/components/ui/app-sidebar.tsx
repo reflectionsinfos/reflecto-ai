@@ -7,19 +7,14 @@ import {
   LayoutDashboard,
   Award,
   Megaphone,
-  User,
   Search,
-  Settings,
   Image as ImageIcon,
-  PartyPopper,
-  Briefcase,
   Trophy
 } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Separator } from "@/components/ui/separator"
 import { useAuth } from "@/hooks/use-auth"
 
 interface SidebarProps extends React.HTMLAttributes<HTMLDivElement> {}

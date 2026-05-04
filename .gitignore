@@ -1,5 +1,5 @@
 # Dependencies
-node_modules
+node_modules/
 .pnpm-store
 
 # Testing
@@ -9,6 +9,9 @@ coverage
 .next/
 out/
 build/
+
+# TypeScript build info
+*.tsbuildinfo
 
 # Misc
 .DS_Store
@@ -37,10 +40,18 @@ prod-vm-details.md
 worktrees/
 
 # Build artifacts
+dist/
 apps/backend/dist/
 apps/frontend/dist/
 
 # Turborepo cache
 .turbo/
-apps/backend/.turbo/
-apps/frontend/.turbo/
+
+# Deployment artifacts
+deployment/deployment.log
+deployment/deployment-*.log
+deployment/release_notes/
+nul
+
+# Claude Code memory
+.claude/

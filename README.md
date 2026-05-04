@@ -229,7 +229,21 @@ See [Environment Configuration](#environment-configuration) above for the full r
 
 ## Docker Deployment
 
-For full production deployment instructions, see [deployment.md](./deployment.md).
+For full production deployment instructions — deploy modes, rollback, manual steps, remote directory structure, and release notes — see [deployment/deployment.md](./deployment/deployment.md).
+
+### Quick deploy to production (Windows)
+
+```powershell
+# No arguments — prompts with branch name, server, and path before proceeding
+.\deployment\deploy.ps1
+
+# Explicit modes
+.\deployment\deploy.ps1 prod auto      # full automated pipeline (default)
+.\deployment\deploy.ps1 prod copy      # upload + extract only, then activate manually on server
+.\deployment\deploy.ps1 prod manual    # print copy-paste steps, nothing executed
+.\deployment\deploy.ps1 prod rollback  # re-point current symlink to the previous release
+.\deployment\deploy.ps1 -WhatIf        # dry-run any mode
+```
 
 ### Prerequisites
 

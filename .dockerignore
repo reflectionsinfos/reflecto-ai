@@ -15,6 +15,8 @@ build
 .env.test.local
 .env.production.local
 .env
+apps/frontend/.env.local
+apps/backend/.env.local
 # Keep .env.production as it might differ, but usually provided via CI/CD or docker env vars
 # If you want strict isolation, ignore all .env files and explicitly copy the one you need
 
