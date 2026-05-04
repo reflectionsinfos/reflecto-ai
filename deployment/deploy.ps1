@@ -305,6 +305,7 @@ function Resolve-RemoteScript {
   $t = $t.Replace("__INSTALL_DOCKER_IF_MISSING__",[string](Escape-BashSingleQuoted -Value $script:installDockerIfMissing))
   $t = $t.Replace("__RETAIN_RELEASES__",         [string]$script:releaseRetention)
   $t = $t.Replace("__REMOTE_USER_NAME__",        [string](Escape-BashSingleQuoted -Value $script:remoteUser))
+  $t = $t.Replace("`r`n", "`n").Replace("`r", "`n")
   return $t
 }
 
