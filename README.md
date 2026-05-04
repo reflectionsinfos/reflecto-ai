@@ -5,7 +5,7 @@ An AI-powered HR recognition and talent development platform. Built as a monorep
 ## Features
 
 ### Recognition & Awards
-- **Kudos Cards** — peer-to-peer recognition with AI-generated message drafts (Gemini)
+- **Kudos Cards** — peer-to-peer recognition with AI-generated message drafts (Gemini); landscape 1920×1080 canvas, circular team avatars, image crop dialog, live full-screen preview, 250-char message limit
 - **Shout Outs** — team-wide public appreciation with admin review view
 - **Spot Awards** — admin-issued awards with recipient selector and database persistence
 - **My Cards** — view and manage your received/downloaded recognition cards
@@ -34,15 +34,20 @@ reflecto-ai/
 │   │   │   │   ├── spot-awards/
 │   │   │   │   ├── learning/
 │   │   │   │   ├── analytics/
-│   │   │   │   └── my-cards/
+│   │   │   │   ├── my-cards/
+│   │   │   │   └── release-notes/
 │   │   │   ├── download/
 │   │   │   └── api/
 │   │   ├── components/
 │   │   │   ├── ui/
-│   │   │   └── shout-out/
+│   │   │   ├── shout-out/
+│   │   │   └── image-cropper-dialog.tsx  # react-easy-crop dialog
 │   │   ├── hooks/
 │   │   ├── lib/
+│   │   │   └── image-generator.ts        # Canvas engine (1920×1080, team avatars)
 │   │   ├── db/              # Drizzle ORM config & schema
+│   │   ├── public/
+│   │   │   └── release-notes/            # Built release notes served by the app
 │   │   └── docs/
 │   │
 │   ├── backend/           # Express.js API Service
@@ -61,6 +66,14 @@ reflecto-ai/
 │   │
 │   └── infra/             # Infrastructure configs
 │       └── *.conf         # Nginx server configs (prod/staging)
+│
+├── deployment/            # Deployment scripts and env configs
+│   ├── deploy.ps1         # Primary deploy script (Windows PowerShell)
+│   ├── env.prod           # Production credentials and config (gitignored)
+│   └── env.prod.example   # Template for env.prod
+│
+├── tools/
+│   └── release-notes.ps1  # CLI wrapper for nexus-ai release notes agent
 │
 └── (no packages/ - shared libs not yet extracted)
 ```
@@ -432,6 +445,35 @@ docker compose -f docker-compose.prod.yml logs -f
 - `apps/frontend/app/dashboard/shout-out/page.tsx` — Generate button, download, success modal
 - `apps/frontend/components/recipient-selector.tsx` — Outlook-style token input rebuild
 - `apps/frontend/lib/graph-service.ts` — Multi-field search with email detection
+
+---
+
+### Kudos Card Enhancements ✅ COMPLETED (May 2026)
+
+**13 enhancements shipped across landscape canvas, team avatars, image crop, and UX polish.**
+
+| Enhancement | Detail |
+|---|---|
+| Landscape orientation | Canvas rewritten to 1920×1080 (16:9); preview uses `aspect-video` |
+| Circular team avatars | Each member rendered as a circular avatar with glow ring and drop shadow |
+| Adaptive avatar sizing | Diameter scales from 320px (1 person) down to 150px (7+ people, 2 rows) |
+| Image cropping | New `image-cropper-dialog.tsx` using `react-easy-crop` with pan, zoom, rotation |
+| Crop / delete per image | Each uploaded image has a dedicated crop icon and X button |
+| Multi-image append | Team mode appends new uploads to the list (up to 15); doesn't replace |
+| Dynamic text scaling | Name and message font sizes step down automatically to prevent overflow |
+| Text overlap fix | Explicit vertical anchors (`NAME_TOP_GAP`, `NAME_MSG_GAP`) prevent element collisions |
+| 250-character limit | Textarea `maxLength`, live counter, warning colour above 230, server-side validation |
+| Full-screen preview | "Full Screen" button opens a backdrop-blur modal with full-resolution preview |
+| Live preview sidebar | Sticky right-panel preview regenerates on every form change (with loading spinner) |
+| Auto recipient name | Name on card auto-computed from selected recipient(s); first names joined for teams |
+| Alignment improvements | All text centred at `cx = canvas.width / 2`; heading scaled to 1.05× to fill landscape |
+
+**Key files:**
+- [apps/frontend/app/dashboard/kudos/page.tsx](apps/frontend/app/dashboard/kudos/page.tsx) — form, crop queue, preview modal, validation
+- [apps/frontend/lib/image-generator.ts](apps/frontend/lib/image-generator.ts) — full canvas engine rewrite
+- [apps/frontend/components/image-cropper-dialog.tsx](apps/frontend/components/image-cropper-dialog.tsx) — new crop dialog
+
+**New dependency:** `react-easy-crop`
 
 ---
 

@@ -697,9 +697,10 @@ $useGitArchive                 = (Get-ConfigValue -Config $config -Key "DEPLOY_U
 $script:installDockerIfMissing = (Get-ConfigValue -Config $config -Key "DEPLOY_INSTALL_DOCKER_IF_MISSING" -Default "true").ToLowerInvariant()
 $retainReleases                = Get-ConfigValue -Config $config -Key "DEPLOY_RETAIN_RELEASES" -Default "3"
 $releaseNotesEnabled           = (Get-ConfigValue -Config $config -Key "RELEASE_NOTES_ENABLED" -Default "false").ToLowerInvariant()
-$releaseAgentDir               = Get-ConfigValue -Config $config -Key "RELEASE_AGENT_DIR"      -Default "C:\projects\nexus-ai\ai-agents\release"
 $releaseNotesPreviousBranch    = Get-ConfigValue -Config $config -Key "RELEASE_NOTES_PREVIOUS_BRANCH" -Default "main"
 $releaseAgentGroqKey           = Get-ConfigValue -Config $config -Key "RELEASE_AGENT_GROQ_API_KEY"
+$releaseAgentGeminiKey         = Get-ConfigValue -Config $config -Key "RELEASE_AGENT_GEMINI_API_KEY"
+$releaseAgentAnthropicKey      = Get-ConfigValue -Config $config -Key "RELEASE_AGENT_ANTHROPIC_API_KEY"
 $strictHostKeyChecking         = Get-ConfigValue -Config $config -Key "SSH_STRICT_HOST_KEY_CHECKING" -Default "accept-new"
 
 $script:localExtraPaths = Get-ConfigList -Config $config -Key "DEPLOY_LOCAL_EXTRA_PATHS" -Default @(
@@ -941,26 +942,33 @@ Deploy Root  : $($script:remoteDeployRoot)
 
       # ---- Release notes (optional, auto only; generated before packaging so the app can serve them) ----
       if ($Mode -eq "auto" -and $releaseNotesEnabled -eq "true") {
-        $releaseAgentPython = Join-Path $releaseAgentDir ".venv\Scripts\python.exe"
+        $releaseAgentScript = Join-Path $scriptDir "..\tools\release-notes.ps1"
 
-        if (-not (Test-Path -LiteralPath $releaseAgentPython)) {
-          Write-Log "Release agent venv not found at $releaseAgentPython - skipping release notes." "WARN"
-        } elseif ([string]::IsNullOrWhiteSpace($releaseAgentGroqKey)) {
-          Write-Log "RELEASE_AGENT_GROQ_API_KEY not configured - skipping release notes." "WARN"
+        $anyLlmKeyConfigured = (
+          -not [string]::IsNullOrWhiteSpace($releaseAgentGroqKey) -or
+          -not [string]::IsNullOrWhiteSpace($releaseAgentGeminiKey) -or
+          -not [string]::IsNullOrWhiteSpace($releaseAgentAnthropicKey)
+        )
+
+        if (-not (Test-Path -LiteralPath $releaseAgentScript)) {
+          Write-Log "Release agent script not found at $releaseAgentScript - skipping release notes." "WARN"
+        } elseif (-not $anyLlmKeyConfigured) {
+          Write-Log "No LLM API key configured (RELEASE_AGENT_GROQ/GEMINI/ANTHROPIC_API_KEY) - skipping release notes." "WARN"
         } elseif ($currentBranch -eq "N/A") {
           Write-Log "Branch name unavailable - skipping release notes." "WARN"
         } else {
           Write-Log "Generating release notes ($currentBranch vs $releaseNotesPreviousBranch)."
           New-DirectoryIfMissing -Path $releaseNotesLocalDir
-          Push-Location $releaseAgentDir
+          if (-not [string]::IsNullOrWhiteSpace($releaseAgentGroqKey))     { $env:GROQ_API_KEY      = $releaseAgentGroqKey }
+          if (-not [string]::IsNullOrWhiteSpace($releaseAgentGeminiKey))   { $env:GEMINI_API_KEY    = $releaseAgentGeminiKey }
+          if (-not [string]::IsNullOrWhiteSpace($releaseAgentAnthropicKey)){ $env:ANTHROPIC_API_KEY = $releaseAgentAnthropicKey }
           try {
-            & $releaseAgentPython -m agent run `
+            & $releaseAgentScript run `
               --current-release  $currentBranch `
               --previous-release $releaseNotesPreviousBranch `
               --repos            $script:localSourcePath `
               --no-approval `
-              --output-dir       $releaseNotesLocalDir `
-              --groq-api-key     $releaseAgentGroqKey
+              --output-dir       $releaseNotesLocalDir
             if ($LASTEXITCODE -eq 0) {
               $releaseNotesPublished = Publish-ReleaseNotesToFrontend `
                 -ReleaseNotesLocalDir $releaseNotesLocalDir `
@@ -985,7 +993,9 @@ Deploy Root  : $($script:remoteDeployRoot)
           } catch {
             Write-Log "Release notes error: $_ - continuing." "WARN"
           } finally {
-            Pop-Location
+            Remove-Item Env:\GROQ_API_KEY      -ErrorAction SilentlyContinue
+            Remove-Item Env:\GEMINI_API_KEY    -ErrorAction SilentlyContinue
+            Remove-Item Env:\ANTHROPIC_API_KEY -ErrorAction SilentlyContinue
           }
         }
       } elseif ($Mode -eq "auto") {
