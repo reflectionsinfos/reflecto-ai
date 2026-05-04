@@ -14,5 +14,8 @@
   "devDependencies": {
     "turbo": "latest"
   },
-  "packageManager": "npm@10.0.0"
+  "packageManager": "npm@10.0.0",
+  "dependencies": {
+    "react-easy-crop": "^5.5.7"
+  }
 }
