@@ -20,18 +20,51 @@ export interface StoredCard {
 const mapEventToCard = (event: any): StoredCard => {
     return {
         id: event.id,
-        recipientName: event.metadata?.recipientName || "Unknown",
-        creatorName: "User", // Backend doesn't always return creator name?
-        creatorEmail: event.senderId, // Need join, but for now ID
-        template: event.metadata?.template || "Custom",
-        templateId: event.metadata?.templateId || "",
-        message: event.metadata?.message || "",
-        createdAt: event.createdAt,
-        thumbnailUrl: event.metadata?.thumbnailUrl || event.imageBlob || "",
-        cardData: event.metadata?.cardData || {},
-        imageBlob: event.imageBlob,
-        recipientType: event.type === 'KUDOS' ? 'individual' : 'team', // Infer
-        recipientEmails: event.recipients
+ 
+        recipientName:
+            event.metadata?.recipientName || "Unknown",
+ 
+        creatorName:
+            event.metadata?.creatorName ||
+            event.metadata?.cardData?.creatorName ||
+            "Unknown User",
+ 
+        creatorEmail:
+            event.metadata?.creatorEmail ||
+            event.metadata?.cardData?.creatorEmail ||
+            event.senderEmail ||
+            event.senderId ||
+            "",
+ 
+        template:
+            event.metadata?.template || "Custom",
+ 
+        templateId:
+            event.metadata?.templateId || "",
+ 
+        message:
+            event.metadata?.message || "",
+ 
+        createdAt:
+            event.createdAt,
+ 
+        thumbnailUrl:
+            event.metadata?.thumbnailUrl ||
+            event.imageBlob ||
+            "",
+ 
+        cardData:
+            event.metadata?.cardData || {},
+ 
+        imageBlob:
+            event.imageBlob,
+ 
+        recipientType:
+            event.metadata?.recipientType ||
+            (event.type === "KUDOS" ? "individual" : "team"),
+ 
+        recipientEmails:
+            event.recipients || [],
     }
 }
 
@@ -66,10 +99,12 @@ class CardStorageManager {
       const payload = {
           type: "KUDOS",
           recipients: card.recipientEmails || [], 
-          imageBlob: card.imageBlob || card.thumbnailUrl,
+          imageBlob: null, // We no longer save the massive base64 string to the DB
           metadata: {
               recipientName: card.recipientName,
               recipientType: card.recipientType,
+              creatorName: card.creatorName,
+              creatorEmail: card.creatorEmail,
               template: card.template,
               templateId: card.templateId,
               message: card.message,

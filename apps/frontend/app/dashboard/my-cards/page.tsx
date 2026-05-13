@@ -37,6 +37,47 @@ interface KudosCard {
   imageBlob?: string
 }
 
+const CardThumbnail = ({ card, className }: { card: StoredCard, className?: string }) => {
+  const [generatedUrl, setGeneratedUrl] = useState<string | null>(null)
+
+  useEffect(() => {
+    let active = true
+    if (!card.thumbnailUrl && !card.imageBlob && card.cardData) {
+      const generate = async () => {
+        try {
+          const { generateKudosCardToCanvas } = await import("@/lib/image-generator")
+          const canvas = document.createElement("canvas")
+          canvas.width = 1080
+          canvas.height = 1350
+          const ctx = canvas.getContext("2d")
+          if (ctx) {
+             await generateKudosCardToCanvas(canvas, card.cardData)
+             if (!active) return
+             canvas.toBlob((blob) => {
+               if (blob && active) setGeneratedUrl(URL.createObjectURL(blob))
+             }, "image/jpeg", 0.5)
+          }
+        } catch (e) {
+           console.error("Failed to lazily generate thumbnail", e)
+        }
+      }
+      const timer = setTimeout(() => generate(), 100)
+      return () => { active = false; clearTimeout(timer) }
+    }
+  }, [card])
+
+  const src = card.thumbnailUrl || card.imageBlob || generatedUrl || "/placeholder.svg"
+  const appliedClass = className || "w-full h-full object-cover object-top"
+
+  return (
+    <img
+      src={src}
+      alt={`${card.recipientName}'s recognition card`}
+      className={`${appliedClass} transition-opacity duration-300 ${!card.thumbnailUrl && !card.imageBlob && !generatedUrl ? 'opacity-50 blur-sm' : 'opacity-100'}`}
+    />
+  )
+}
+
 export default function MyCardsPage() {
   const { toast } = useToast()
   const { user: currentUser, isLoading: isAuthLoading } = useAuth()
@@ -44,6 +85,7 @@ export default function MyCardsPage() {
   const [filteredCards, setFilteredCards] = useState<StoredCard[]>([])
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedTemplate, setSelectedTemplate] = useState("all")
+  const [selectedMonth, setSelectedMonth] = useState("")
   const [viewCard, setViewCard] = useState<StoredCard | null>(null)
   const [deleteCard, setDeleteCard] = useState<StoredCard | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
@@ -110,30 +152,80 @@ export default function MyCardsPage() {
       filtered = filtered.filter((card) => card.template === selectedTemplate)
     }
 
+    if (selectedMonth) {
+      filtered = filtered.filter((card) => card.createdAt.startsWith(selectedMonth))
+    }
+
     filtered = filtered.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
 
     setFilteredCards(filtered)
     setCurrentPage(1) // Reset to first page when filters change
-  }, [searchTerm, selectedTemplate, cards])
+  }, [searchTerm, selectedTemplate, selectedMonth, cards])
+
+  const handleExportCSV = () => {
+    if (filteredCards.length === 0) {
+      toast({ title: "No data", description: "There are no cards to export.", variant: "default" })
+      return
+    }
+
+    const headers = ["Date Generated", "Creator Name", "Creator Email", "Recipient Name", "Template", "Message"]
+    
+    const escapeCSV = (str: string) => {
+      if (str === null || str === undefined) return '""';
+      const cleanStr = String(str).replace(/"/g, '""');
+      return `"${cleanStr}"`;
+    }
+
+    const csvRows = [headers.map(escapeCSV).join(",")]
+
+    for (const card of filteredCards) {
+      const row = [
+        formatDate(card.createdAt),
+        card.creatorName,
+        card.creatorEmail,
+        card.recipientName,
+        card.template,
+        card.message
+      ]
+      csvRows.push(row.map(escapeCSV).join(","))
+    }
+
+    const csvData = csvRows.join("\n")
+    const blob = new Blob([csvData], { type: "text/csv;charset=utf-8;" })
+    const link = document.createElement("a")
+    const url = URL.createObjectURL(blob)
+    link.setAttribute("href", url)
+    link.setAttribute("download", `cards_export_${selectedMonth || "all"}.csv`)
+    link.style.visibility = "hidden"
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
+  }
 
   const handleDownload = async (card: StoredCard) => {
     try {
-      // Match the same source priority used by the preview modal so
-      // older cards with a good thumbnail but stale full image still
-      // download the version that actually contains the recipient photos.
-      const imageUrl = card.thumbnailUrl || card.imageBlob
-
-      if (imageUrl) {
+      // Always prefer regenerating the high-res card dynamically.
+      // This ensures they don't accidentally download the low-res thumbnail.
+      if (card.cardData) {
+        const { generateKudosCard } = await import("@/lib/image-generator")
+        await generateKudosCard(card.cardData)
+      } else if (card.imageBlob) {
+        // Fallback for extremely old legacy cards that didn't save cardData
         const filename = `recognition-card-${card.recipientName.replace(/\s+/g, "-").toLowerCase()}.png`
         const link = document.createElement("a")
-        link.href = imageUrl
+        link.href = card.imageBlob
         link.download = filename
         document.body.appendChild(link)
         link.click()
         document.body.removeChild(link)
       } else {
-        const { generateKudosCard } = await import("@/lib/image-generator")
-        await generateKudosCard(card.cardData)
+         toast({
+          title: "Download Unavailable",
+          description: "This card is too old and its data could not be recovered.",
+          variant: "destructive",
+        })
+        return;
       }
 
       if (currentUser) {
@@ -309,32 +401,53 @@ export default function MyCardsPage() {
         </p>
       </div>
 
-      {/* Filters */}
-      <div className="mb-6 flex flex-col sm:flex-row gap-4">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
-          <Input
-            placeholder="Search by recipient, creator, or template..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10 bg-input border-border"
-          />
+      {/* Filters & Actions */}
+      <div className="mb-6 flex flex-col sm:flex-row gap-4 justify-between items-center">
+        <div className="flex flex-col sm:flex-row gap-4 flex-1 w-full">
+          <div className="relative flex-1 max-w-md">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+            <Input
+              placeholder="Search by recipient, creator, or template..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10 bg-input border-border"
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            <Filter className="w-4 h-4 text-muted-foreground" />
+            <select
+              value={selectedTemplate}
+              onChange={(e) => setSelectedTemplate(e.target.value)}
+              className="px-3 py-2 bg-input border border-border rounded-md text-foreground focus:ring-2 focus:ring-primary focus:border-primary"
+            >
+              <option value="all">All Templates</option>
+              {templates.map((template) => (
+                <option key={template} value={template}>
+                  {template}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="flex items-center gap-2">
+            <Calendar className="w-4 h-4 text-muted-foreground" />
+            <input
+              type="month"
+              value={selectedMonth}
+              onChange={(e) => setSelectedMonth(e.target.value)}
+              className="px-3 py-2 bg-input border border-border rounded-md text-foreground focus:ring-2 focus:ring-primary focus:border-primary w-40"
+              style={{ colorScheme: "dark" }}
+            />
+            {selectedMonth && (
+              <Button variant="ghost" size="icon" onClick={() => setSelectedMonth("")} className="h-8 w-8 text-muted-foreground">
+                <X className="w-4 h-4" />
+              </Button>
+            )}
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          <Filter className="w-4 h-4 text-muted-foreground" />
-          <select
-            value={selectedTemplate}
-            onChange={(e) => setSelectedTemplate(e.target.value)}
-            className="px-3 py-2 bg-input border border-border rounded-md text-foreground focus:ring-2 focus:ring-primary focus:border-primary"
-          >
-            <option value="all">All Templates</option>
-            {templates.map((template) => (
-              <option key={template} value={template}>
-                {template}
-              </option>
-            ))}
-          </select>
-        </div>
+        <Button onClick={handleExportCSV} className="w-full sm:w-auto shrink-0 bg-accent hover:bg-accent/90 text-accent-foreground">
+          <Download className="w-4 h-4 mr-2" />
+          Export CSV
+        </Button>
       </div>
 
       {/* Stats */}
@@ -376,11 +489,7 @@ export default function MyCardsPage() {
               <Card key={card.id} className="group hover:shadow-lg transition-all duration-200 border-border p-0">
                 <CardContent className="p-0">
                   <div className="relative h-48 bg-muted rounded-t-lg overflow-hidden">
-                    <img
-                      src={card.thumbnailUrl || card.imageBlob || "/placeholder.svg"}
-                      alt={`${card.recipientName}'s recognition card`}
-                      className="w-full h-full object-cover object-top"
-                    />
+                    <CardThumbnail card={card} />
                     <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors duration-200" />
 
                     <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200">
@@ -518,10 +627,9 @@ export default function MyCardsPage() {
 
             <div className="p-6">
               <div className="flex justify-center mb-6">
-                <img
-                  src={viewCard.thumbnailUrl || viewCard.imageBlob || "/placeholder.svg"}
-                  alt={`${viewCard.recipientName}'s recognition card`}
-                  className="max-w-full h-auto rounded-lg shadow-lg max-h-[60vh] object-contain"
+                <CardThumbnail 
+                  card={viewCard} 
+                  className="max-w-full h-auto rounded-lg shadow-lg max-h-[60vh] object-contain" 
                 />
               </div>
 

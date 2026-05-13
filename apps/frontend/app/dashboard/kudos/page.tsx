@@ -1,4 +1,5 @@
 "use client"
+
 import type React from "react"
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
@@ -66,14 +67,14 @@ const CUSTOM_ICON_MAP: Record<string, React.ElementType> = {
 }
 
 const CUSTOM_COLORS = [
-  { name: "blue",    bg: "bg-blue-500",    ring: "ring-blue-500" },
-  { name: "purple",  bg: "bg-purple-500",  ring: "ring-purple-500" },
+  { name: "blue", bg: "bg-blue-500", ring: "ring-blue-500" },
+  { name: "purple", bg: "bg-purple-500", ring: "ring-purple-500" },
   { name: "emerald", bg: "bg-emerald-500", ring: "ring-emerald-500" },
-  { name: "orange",  bg: "bg-orange-500",  ring: "ring-orange-500" },
-  { name: "red",     bg: "bg-red-500",     ring: "ring-red-500" },
-  { name: "teal",    bg: "bg-teal-500",    ring: "ring-teal-500" },
-  { name: "pink",    bg: "bg-pink-500",    ring: "ring-pink-500" },
-  { name: "indigo",  bg: "bg-indigo-500",  ring: "ring-indigo-500" },
+  { name: "orange", bg: "bg-orange-500", ring: "ring-orange-500" },
+  { name: "red", bg: "bg-red-500", ring: "ring-red-500" },
+  { name: "teal", bg: "bg-teal-500", ring: "ring-teal-500" },
+  { name: "pink", bg: "bg-pink-500", ring: "ring-pink-500" },
+  { name: "indigo", bg: "bg-indigo-500", ring: "ring-indigo-500" },
 ]
 
 /** Converts a SavedCustomTemplate from the DB into a template object compatible with the rest of the form */
@@ -150,7 +151,7 @@ export default function DashboardPage() {
   const { user } = useAuth() // Get user from hook
 
   const [selectedTemplate, setSelectedTemplate] = useState<any>(templates[0])
-  
+
   const [formData, setFormData] = useState({
     recipientType: "individual" as "individual" | "team",
     // recipients stores the Graph User objects
@@ -161,12 +162,13 @@ export default function DashboardPage() {
     creatorName: "",
     // images array for team or individual
     images: [] as File[],
+    originalImages: [] as File[],
     // legacy field for simple checks, syncs with images[0]
     image: null as File | null,
   })
 
   const [isGenerating, setIsGenerating] = useState(false)
-  const [showFullScreenPreview, setShowFullScreenPreview] = useState(false) 
+  const [showFullScreenPreview, setShowFullScreenPreview] = useState(false)
   const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null)
   const [isPreviewLoading, setIsPreviewLoading] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
@@ -202,7 +204,7 @@ export default function DashboardPage() {
   // Sync creator name when user loads
   useEffect(() => {
     if (user) {
-      setFormData((prev) => ({ ...prev, creatorName: user.email || user.name || "" }))
+      setFormData((prev) => ({ ...prev, creatorName: user.name || "" }))
     }
   }, [user])
 
@@ -357,7 +359,7 @@ export default function DashboardPage() {
         recipientName: formData.recipientName || "Recipient Name",
         designation: "",
         message: formData.message || "Your appreciation message will appear here...",
-        creatorName: formData.creatorName || (user?.name || "Your Name"),
+        creatorName: formData.creatorName,
         image: formData.image,
         images: formData.images,
         recipientType: formData.recipientType,
@@ -383,35 +385,40 @@ export default function DashboardPage() {
   }
 
   useEffect(() => {
-    const timer = setTimeout(() => generateLivePreview(), 800)
+    const timer = setTimeout(() => generateLivePreview(), 300)
     return () => clearTimeout(timer)
   }, [
-    formData.recipientName, 
-    formData.message, 
-    formData.creatorName, 
-    formData.image, 
-    formData.images, 
-    formData.recipientType, 
-    selectedTemplate 
+    formData.recipientName,
+    formData.message,
+    formData.creatorName,
+  ])
+
+  useEffect(() => {
+    generateLivePreview()
+  }, [
+    formData.image,
+    formData.images,
+    formData.recipientType,
+    selectedTemplate
   ])
 
 
   // Sync recipientName based on recipients list
   useEffect(() => {
     if (formData.recipients.length === 0) {
-        setFormData(prev => ({ ...prev, recipientName: "" }));
-        return;
+      setFormData(prev => ({ ...prev, recipientName: "" }));
+      return;
     }
 
     if (formData.recipientType === "individual") {
-        setFormData(prev => ({ ...prev, recipientName: formData.recipients[0].displayName }));
+      setFormData(prev => ({ ...prev, recipientName: formData.recipients[0].displayName }));
     } else {
-        // Team Logic
-        const getFirstName = (name: string) => name.split(' ')[0].split('@')[0];
-        
-        const names = formData.recipients.map(u => getFirstName(u.displayName));
-        // Always show all names (scaler will handle fitting)
-        setFormData(prev => ({ ...prev, recipientName: names.join(", ") }));
+      // Team Logic
+      const getFirstName = (name: string) => name.split(' ')[0].split('@')[0];
+
+      const names = formData.recipients.map(u => getFirstName(u.displayName));
+      // Always show all names (scaler will handle fitting)
+      setFormData(prev => ({ ...prev, recipientName: names.join(", ") }));
     }
   }, [formData.recipients, formData.recipientType]);
 
@@ -423,21 +430,22 @@ export default function DashboardPage() {
   }
 
   const handleRecipientTypeChange = (type: "individual" | "team") => {
-      setFormData(prev => ({ 
-          ...prev, 
-          recipientType: type,
-          recipients: [], // Reset recipients when switching type for clarity
-          images: [],
-          image: null 
-      }));
-      setErrors({});
+    setFormData(prev => ({
+      ...prev,
+      recipientType: type,
+      recipients: [], // Reset recipients when switching type for clarity
+      images: [],
+      originalImages: [],
+      image: null
+    }));
+    setErrors({});
   }
 
   const handleRecipientsChange = (recipients: GraphUser[]) => {
-      setFormData(prev => ({ ...prev, recipients }));
-      if (errors.recipientName) {
-           setErrors(prev => ({ ...prev, recipientName: "" }));
-      }
+    setFormData(prev => ({ ...prev, recipients }));
+    if (errors.recipientName) {
+      setErrors(prev => ({ ...prev, recipientName: "" }));
+    }
   }
 
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -445,45 +453,49 @@ export default function DashboardPage() {
     if (!files || files.length === 0) return;
 
     if (formData.recipientType === "individual" && files.length > 1) {
-        setErrors(prev => ({ ...prev, image: "Individual cards can only have one image." }));
-        return;
+      setErrors(prev => ({ ...prev, image: "Individual cards can only have one image." }));
+      return;
     }
 
     if (formData.recipientType === "team" && formData.images.length + files.length > 15) {
-        setErrors(prev => ({ ...prev, image: "Team cards support up to 15 images." }));
-        return;
+      setErrors(prev => ({ ...prev, image: "Team cards support up to 15 images." }));
+      return;
     }
 
     // Convert to array
     const fileList = Array.from(files);
-    
+
     // Check sizes
     const oversized = fileList.some(f => f.size > 5 * 1024 * 1024);
     if (oversized) {
-        setErrors(prev => ({ ...prev, image: "All images must be less than 5MB" }));
-        return;
+      setErrors(prev => ({ ...prev, image: "All images must be less than 5MB" }));
+      return;
     }
 
     // Check types
     const invalidType = fileList.some(f => !f.type.startsWith("image/"));
     if (invalidType) {
-        setErrors(prev => ({ ...prev, image: "Please select valid image files" }));
-        return;
+      setErrors(prev => ({ ...prev, image: "Please select valid image files" }));
+      return;
     }
 
     // Update form
     setFormData(prev => {
-        let newImages = [];
-        if (prev.recipientType === "team") {
-            newImages = [...prev.images, ...fileList].slice(0, 15);
-        } else {
-            newImages = fileList;
-        }
-        return {
-            ...prev,
-            images: newImages,
-            image: newImages[0] || null // Set first as legacy image for compatibility
-        };
+      let newImages = [];
+      let newOriginals = [];
+      if (prev.recipientType === "team") {
+        newImages = [...prev.images, ...fileList].slice(0, 15);
+        newOriginals = [...(prev.originalImages || prev.images), ...fileList].slice(0, 15);
+      } else {
+        newImages = fileList;
+        newOriginals = fileList;
+      }
+      return {
+        ...prev,
+        images: newImages,
+        originalImages: newOriginals,
+        image: newImages[0] || null // Set first as legacy image for compatibility
+      };
     });
     setErrors(prev => ({ ...prev, image: "" }));
 
@@ -492,13 +504,14 @@ export default function DashboardPage() {
   }
 
   const handleEditCrop = (index: number) => {
-    setCropQueue([{ index, url: URL.createObjectURL(formData.images[index]) }]);
+    const fileToCrop = formData.originalImages?.[index] || formData.images[index];
+    setCropQueue([{ index, url: URL.createObjectURL(fileToCrop) }]);
   };
 
   const handleCropComplete = (croppedBlob: Blob) => {
     if (cropQueue.length === 0) return;
     const current = cropQueue[0];
-    
+
     setFormData(prev => {
       const newImages = [...prev.images];
       // create new file from blob. Keep original name, but update type visually
@@ -506,20 +519,23 @@ export default function DashboardPage() {
       newImages[current.index] = newFile;
       return { ...prev, images: newImages, image: newImages[0] };
     });
-    
+
     // Proceed to next in queue
     setCropQueue(prev => prev.slice(1));
   }
 
   const handleRemoveImage = (index: number) => {
     setFormData(prev => {
-        const newImages = [...prev.images];
-        newImages.splice(index, 1);
-        return {
-            ...prev,
-            images: newImages,
-            image: newImages.length > 0 ? newImages[0] : null
-        };
+      const newImages = [...prev.images];
+      newImages.splice(index, 1);
+      const newOriginals = [...(prev.originalImages || prev.images)];
+      newOriginals.splice(index, 1);
+      return {
+        ...prev,
+        images: newImages,
+        originalImages: newOriginals,
+        image: newImages.length > 0 ? newImages[0] : null
+      };
     });
   };
 
@@ -529,9 +545,9 @@ export default function DashboardPage() {
     if (formData.recipients.length === 0) {
       newErrors.recipientName = "Please select at least one recipient";
     }
-    
+
     if (formData.recipientType === "individual" && formData.recipients.length > 1) {
-         newErrors.recipientName = "Individual mode allows only one recipient";
+      newErrors.recipientName = "Individual mode allows only one recipient";
     }
 
     if (!formData.message.trim()) {
@@ -540,13 +556,11 @@ export default function DashboardPage() {
       newErrors.message = "Message must be 250 characters or less"
     }
 
-    if (!formData.creatorName.trim()) {
-      newErrors.creatorName = "Your name is required"
-    }
-    
-    // Image validation (Optional, but if supplied must be correct count)
-    if (formData.recipientType === "individual" && formData.images.length > 1) {
-        newErrors.image = "Individual cards can only have one image";
+    // Image validation
+    if (formData.images.length === 0) {
+      newErrors.image = "Please upload an image";
+    } else if (formData.recipientType === "individual" && formData.images.length > 1) {
+      newErrors.image = "Individual cards can only have one image";
     }
 
     setErrors(newErrors)
@@ -555,26 +569,26 @@ export default function DashboardPage() {
 
   const handleGenerateCard = async () => {
     if (!validateForm()) {
-        toast({
-            title: "Missing Fields",
-            description: "Please fill in all required fields to generate the card.",
-            variant: "destructive",
-            duration: 3000,
-        })
-        // Scroll to top to show errors
-        window.scrollTo({ top: 0, behavior: "smooth" })
-        return
+      toast({
+        title: "Missing Fields",
+        description: "Please fill in all required fields to generate the card.",
+        variant: "destructive",
+        duration: 3000,
+      })
+      // Scroll to top to show errors
+      window.scrollTo({ top: 0, behavior: "smooth" })
+      return
     }
 
     setIsGenerating(true)
     try {
       const cardDataPayload = {
         template: {
-            ...selectedTemplate,
-            icon: selectedTemplate.name
+          ...selectedTemplate,
+          icon: selectedTemplate.name
         },
         recipientName: formData.recipientName,
-        designation:  "", // Optional or can be filled if we had data
+        designation: "", // Optional or can be filled if we had data
         message: formData.message,
         creatorName: formData.creatorName,
         image: formData.image,
@@ -598,39 +612,39 @@ export default function DashboardPage() {
         await generateKudosCardToCanvas(canvas, cardDataPayload)
 
         const fullImageBase64 = canvas.toDataURL("image/png", 1.0)
-        
+
         // Thumbnail generation...
         const thumbnailCanvas = document.createElement("canvas")
         const thumbnailWidth = 300
         const thumbnailHeight = (canvas.height / canvas.width) * thumbnailWidth
         thumbnailCanvas.width = thumbnailWidth
         thumbnailCanvas.height = thumbnailHeight
-        
+
         const thumbnailCtx = thumbnailCanvas.getContext("2d")
         if (thumbnailCtx) {
           thumbnailCtx.drawImage(canvas, 0, 0, thumbnailWidth, thumbnailHeight)
-          
+
           const thumbnailBase64 = await new Promise<string>((resolve) => {
             thumbnailCanvas.toBlob((blob) => {
-              resolve(blob ? URL.createObjectURL(blob) : "") 
+              resolve(blob ? URL.createObjectURL(blob) : "")
             }, "image/jpeg", 0.7)
           });
-           
+
           // Re-implementing FileReader for Base64 (Robust)
           const realThumbnailBase64 = await new Promise<string>((resolve) => {
-             thumbnailCanvas.toBlob(blob => {
-                 if(blob) {
-                    const reader = new FileReader();
-                    reader.onload = () => resolve(reader.result as string);
-                    reader.readAsDataURL(blob);
-                 } else {
-                     resolve("");
-                 }
-             }, "image/jpeg", 0.7);
+            thumbnailCanvas.toBlob(blob => {
+              if (blob) {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result as string);
+                reader.readAsDataURL(blob);
+              } else {
+                resolve("");
+              }
+            }, "image/jpeg", 0.7);
           });
-          
+
           const storedCard: StoredCard & { recipientType?: string, recipientEmails?: string[] } = {
-            id: "", 
+            id: "",
             recipientName: formData.recipientName,
             creatorName: formData.creatorName,
             creatorEmail: user?.email || "",
@@ -644,7 +658,7 @@ export default function DashboardPage() {
             recipientType: formData.recipientType,
             recipientEmails: cardDataPayload.recipientEmails
           }
-          
+
           await cardStorage.saveCard(storedCard)
         }
       }
@@ -671,8 +685,8 @@ export default function DashboardPage() {
       setIsGenerating(false)
     }
   }
-  
-   const handleRedownload = async () => {
+
+  const handleRedownload = async () => {
     if (!generatedCardData) return
 
     setIsGenerating(true)
@@ -704,7 +718,8 @@ export default function DashboardPage() {
       recipientName: "",
       message: "",
       image: null,
-      images: []
+      images: [],
+      originalImages: []
     }))
     setErrors({})
   }
@@ -716,7 +731,7 @@ export default function DashboardPage() {
 
   const messageLength = formData.message.length
   // Validator boolean for UI
-  const isFormValid = formData.recipients.length > 0 && formData.message && formData.creatorName
+  const isFormValid = formData.recipients.length > 0 && formData.message
 
   // Select message set based on type (from fetched cache)
   const currentMessages = messagesCache[selectedTemplate.id]?.[formData.recipientType] || []
@@ -727,13 +742,13 @@ export default function DashboardPage() {
   }
 
   const handleTemplateSelection = (template: any) => {
-     if (template.id === selectedTemplate.id) return 
-     if (hasFormData()) {
-       setPendingTemplate(template)
-       setShowConfirmDialog(true)
-     } else {
-       setSelectedTemplate(template)
-     }
+    if (template.id === selectedTemplate.id) return
+    if (hasFormData()) {
+      setPendingTemplate(template)
+      setShowConfirmDialog(true)
+    } else {
+      setSelectedTemplate(template)
+    }
   }
 
   const handleConfirmTemplateSwitch = () => {
@@ -745,27 +760,28 @@ export default function DashboardPage() {
         recipientName: "",
         message: "",
         image: null,
-        images: []
+        images: [],
+        originalImages: []
       }))
       setErrors({})
     }
     setShowConfirmDialog(false)
     setPendingTemplate(null)
   }
-  
+
   const handleCancelTemplateSwitch = () => {
     setShowConfirmDialog(false)
     setPendingTemplate(null)
   }
-  
+
   const handleViewMyCards = () => {
     setShowSuccessModal(false)
     window.location.href = "/dashboard/my-cards"
   }
-  
+
   // Full screen preview trigger
   const handlePreviewGenerated = () => {
-      setShowFullScreenPreview(true)
+    setShowFullScreenPreview(true)
   }
 
 
@@ -788,9 +804,8 @@ export default function DashboardPage() {
               return (
                 <Card
                   key={template.id}
-                  className={`cursor-pointer transition-all duration-200 hover:scale-[1.02] shadow-md hover:shadow-lg ${
-                    selectedTemplate.id === template.id ? "ring-2 ring-primary shadow-lg" : ""
-                  }`}
+                  className={`cursor-pointer transition-all duration-200 hover:scale-[1.02] shadow-md hover:shadow-lg ${selectedTemplate.id === template.id ? "ring-2 ring-primary shadow-lg" : ""
+                    }`}
                   onClick={() => handleTemplateSelection(template)}
                 >
                   <CardContent className="p-4 text-center">
@@ -817,9 +832,8 @@ export default function DashboardPage() {
                   return (
                     <Card
                       key={saved.id}
-                      className={`relative cursor-pointer transition-all duration-200 hover:scale-[1.02] shadow-md hover:shadow-lg group ${
-                        isSelected ? "ring-2 ring-primary shadow-lg" : ""
-                      }`}
+                      className={`relative cursor-pointer transition-all duration-200 hover:scale-[1.02] shadow-md hover:shadow-lg group ${isSelected ? "ring-2 ring-primary shadow-lg" : ""
+                        }`}
                       onClick={() => handleTemplateSelection(tmpl as any)}
                     >
                       <CardContent className="p-4 text-center">
@@ -872,12 +886,12 @@ export default function DashboardPage() {
                 </h3>
 
                 <div className="space-y-4">
-                  <RecipientSelector 
-                      type={formData.recipientType}
-                      onTypeChange={handleRecipientTypeChange}
-                      selectedRecipients={formData.recipients}
-                      onRecipientsChange={handleRecipientsChange}
-                      error={errors.recipientName}
+                  <RecipientSelector
+                    type={formData.recipientType}
+                    onTypeChange={handleRecipientTypeChange}
+                    selectedRecipients={formData.recipients}
+                    onRecipientsChange={handleRecipientsChange}
+                    error={errors.recipientName}
                   />
 
                   <div>
@@ -886,34 +900,34 @@ export default function DashboardPage() {
                     </Label>
 
                     <div className="mb-3">
-                        <Select onValueChange={handlePreGeneratedMessage} disabled={loadingMessages}>
-                            <SelectTrigger className="w-full bg-input border-border">
-                            <SelectValue placeholder={loadingMessages ? "Loading messages..." : "Choose a pre-generated message or write your own"} />
-                            </SelectTrigger>
-                            <SelectContent>
-                            {currentMessages.length > 0 ? (
-                              currentMessages.map((message, index) => (
-                                <SelectItem key={index} value={message} className="text-sm">
+                      <Select onValueChange={handlePreGeneratedMessage} disabled={loadingMessages}>
+                        <SelectTrigger className="w-full bg-input border-border">
+                          <SelectValue placeholder={loadingMessages ? "Loading messages..." : "Choose a pre-generated message or write your own"} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {currentMessages.length > 0 ? (
+                            currentMessages.map((message, index) => (
+                              <SelectItem key={index} value={message} className="text-sm">
                                 {message.length > 60 ? `${message.substring(0, 60)}...` : message}
-                                </SelectItem>
-                              ))
-                            ) : (
-                              <div className="p-2 text-xs text-muted-foreground">
-                                {loadingMessages ? "Loading messages..." : "No messages available"}
-                              </div>
-                            )}
-                            </SelectContent>
-                        </Select>
+                              </SelectItem>
+                            ))
+                          ) : (
+                            <div className="p-2 text-xs text-muted-foreground">
+                              {loadingMessages ? "Loading messages..." : "No messages available"}
+                            </div>
+                          )}
+                        </SelectContent>
+                      </Select>
                     </div>
 
                     <div className="flex justify-end mb-2">
-                         <AiMessageAssistant 
-                             context="Kudos"
-                             recipientName={formData.recipientName}
-                             category={selectedTemplate.name}
-                             currentValue={formData.message}
-                             onMessageGenerated={(msg) => handleInputChange("message", msg)}
-                         />
+                      <AiMessageAssistant
+                        context="Kudos"
+                        recipientName={formData.recipientName}
+                        category={selectedTemplate.name}
+                        currentValue={formData.message}
+                        onMessageGenerated={(msg) => handleInputChange("message", msg)}
+                      />
                     </div>
 
                     <Textarea
@@ -938,59 +952,61 @@ export default function DashboardPage() {
 
                   <div>
                     <Label htmlFor="image" className="text-sm font-semibold text-foreground mb-2 block">
-                      {formData.recipientType === 'individual' ? "Upload Image (Optional)" : "Upload Images (Optional, up to 15)"}
+                      {formData.recipientType === 'individual' ? "Upload Image *" : "Upload Images * (up to 15)"}
                     </Label>
-                    <label
-                      htmlFor="image"
-                      className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-border rounded-lg cursor-pointer bg-input hover:bg-muted/50 transition-colors"
-                    >
-                      <div className="flex flex-col items-center justify-center pt-3 pb-3">
-                        <Upload className="w-6 h-6 text-muted-foreground mb-2" />
-                        <p className="text-sm text-foreground">Click to upload</p>
-                        <p className="text-xs text-muted-foreground">{formData.recipientType === 'individual' ? "PNG, JPG up to 5MB" : "Select multiple images"}</p>
-                      </div>
-                      <input 
-                          id="image" 
-                          type="file" 
-                          className="hidden" 
-                          accept="image/*" 
-                          multiple={formData.recipientType === 'team'}
-                          onChange={handleImageUpload} 
-                      />
-                    </label>
-                    {formData.images.length > 0 && (
-                        <div className="flex flex-wrap gap-2 mt-2">
-                            {formData.images.map((f, i) => (
-                                <div key={i} className="flex items-center gap-1 bg-accent/10 px-2 py-1 rounded-full border border-accent/20">
-                                    <span className="text-xs text-accent font-medium max-w-[150px] truncate" title={f.name}>
-                                        {f.name}
-                                    </span>
-                                    <button
-                                        onClick={() => handleEditCrop(i)}
-                                        className="text-accent hover:text-primary transition-colors ml-1"
-                                        title="Crop Image"
-                                        type="button"
-                                    >
-                                        <Crop className="w-3 h-3" />
-                                    </button>
-                                    <button
-                                        onClick={() => handleRemoveImage(i)}
-                                        className="text-accent hover:text-destructive transition-colors ml-1"
-                                        title="Remove Image"
-                                        type="button"
-                                    >
-                                        <X className="w-3 h-3" />
-                                    </button>
-                                </div>
-                            ))}
+                    {!(formData.recipientType === 'individual' && formData.images.length > 0) && (
+                      <label
+                        htmlFor="image"
+                        className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-border rounded-lg cursor-pointer bg-input hover:bg-muted/50 transition-colors"
+                      >
+                        <div className="flex flex-col items-center justify-center pt-3 pb-3">
+                          <Upload className="w-6 h-6 text-muted-foreground mb-2" />
+                          <p className="text-sm text-foreground">Click to upload</p>
+                          <p className="text-xs text-muted-foreground">{formData.recipientType === 'individual' ? "PNG, JPG up to 5MB" : "Select multiple images"}</p>
                         </div>
+                        <input
+                          id="image"
+                          type="file"
+                          className="hidden"
+                          accept="image/*"
+                          multiple={formData.recipientType === 'team'}
+                          onChange={handleImageUpload}
+                        />
+                      </label>
+                    )}
+                    {formData.images.length > 0 && (
+                      <div className="flex flex-wrap gap-4 mt-3">
+                        {formData.images.map((f, i) => (
+                          <div key={i} className="relative group w-24 h-24 border border-border rounded-lg overflow-hidden bg-muted flex-shrink-0 shadow-sm">
+                            <img src={URL.createObjectURL(f)} alt={f.name} className="w-full h-full object-cover" />
+                            <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3 backdrop-blur-[1px]">
+                              <button
+                                onClick={() => handleEditCrop(i)}
+                                className="text-white/80 hover:text-white transition-colors p-1"
+                                title="Crop Image"
+                                type="button"
+                              >
+                                <Crop className="w-5 h-5" />
+                              </button>
+                              <button
+                                onClick={() => handleRemoveImage(i)}
+                                className="text-white/80 hover:text-destructive transition-colors p-1"
+                                title="Remove Image"
+                                type="button"
+                              >
+                                <X className="w-5 h-5" />
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
                     )}
                     {errors.image && <p className="text-xs text-destructive mt-1">{errors.image}</p>}
                   </div>
 
                   <div>
                     <Label htmlFor="creatorName" className="text-sm font-semibold text-foreground mb-2 block">
-                      Your Name *
+                      Your Name
                     </Label>
                     <Input
                       id="creatorName"
@@ -1027,7 +1043,7 @@ export default function DashboardPage() {
                       <Award className="w-4 h-4 mr-2" />
                       Full Screen
                     </Button>
-                <Button
+                    <Button
                       onClick={handleGenerateCard}
                       disabled={isGenerating}
                       className="bg-primary hover:bg-primary/90 text-primary-foreground font-medium px-6 py-2 disabled:opacity-50 shadow-md"
@@ -1039,21 +1055,21 @@ export default function DashboardPage() {
                 </div>
 
                 <div className="bg-gradient-to-br from-card to-muted/20 rounded-xl border border-border p-6 aspect-video flex flex-col justify-between shadow-inner px-0 py-0 overflow-hidden relative">
-                   {/* Live Sidebar Preview */}
-                   {isPreviewLoading && (
-                       <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/10 backdrop-blur-[1px]">
-                           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-                       </div>
-                   )}
-                   
-                   {previewImageUrl ? (
-                       <img src={previewImageUrl} alt="Preview" className="w-full h-full object-contain rounded-xl" />
-                   ) : (
-                       <div className="w-full h-full flex flex-col items-center justify-center text-muted-foreground bg-muted/20 rounded-xl p-6 text-center">
-                           <Award className="w-12 h-12 mb-2 text-muted-foreground/50" />
-                           <p>Generating preview...</p>
-                       </div>
-                   )}
+                  {/* Live Sidebar Preview */}
+                  {isPreviewLoading && (
+                    <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/10 backdrop-blur-[1px]">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                    </div>
+                  )}
+
+                  {previewImageUrl ? (
+                    <img src={previewImageUrl} alt="Preview" className="w-full h-full object-contain rounded-xl" />
+                  ) : (
+                    <div className="w-full h-full flex flex-col items-center justify-center text-muted-foreground bg-muted/20 rounded-xl p-6 text-center">
+                      <Award className="w-12 h-12 mb-2 text-muted-foreground/50" />
+                      <p>Generating preview...</p>
+                    </div>
+                  )}
                 </div>
 
               </CardContent>
@@ -1125,16 +1141,16 @@ export default function DashboardPage() {
         {showFullScreenPreview && previewImageUrl && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4" onClick={() => setShowFullScreenPreview(false)}>
             <div className="relative max-h-[90vh] max-w-[90vw] overflow-auto" onClick={e => e.stopPropagation()}>
-                <img src={previewImageUrl} alt="Card Preview" className="max-w-full max-h-[85vh] rounded-lg shadow-2xl" />
-                <Button 
-                    className="absolute top-2 right-2 rounded-full p-2 h-auto" 
-                    variant="destructive"
-                    onClick={() => setShowFullScreenPreview(false)}
-                >
-                     <p className="sr-only">Close</p>
+              <img src={previewImageUrl} alt="Card Preview" className="max-w-full max-h-[85vh] rounded-lg shadow-2xl" />
+              <Button
+                className="absolute top-2 right-2 rounded-full p-2 h-auto"
+                variant="destructive"
+                onClick={() => setShowFullScreenPreview(false)}
+              >
+                <p className="sr-only">Close</p>
 
-                     <span className="text-white font-bold">X</span>
-                </Button>
+                <span className="text-white font-bold">X</span>
+              </Button>
             </div>
           </div>
         )}
@@ -1230,9 +1246,8 @@ export default function DashboardPage() {
                     <button
                       key={c.name}
                       onClick={() => setCustomForm((p) => ({ ...p, color: c.name }))}
-                      className={`w-8 h-8 rounded-full ${c.bg} transition-all ${
-                        customForm.color === c.name ? `ring-2 ring-offset-2 ring-offset-card ${c.ring} scale-110` : "hover:scale-105"
-                      }`}
+                      className={`w-8 h-8 rounded-full ${c.bg} transition-all ${customForm.color === c.name ? `ring-2 ring-offset-2 ring-offset-card ${c.ring} scale-110` : "hover:scale-105"
+                        }`}
                       title={c.name}
                     />
                   ))}
@@ -1247,11 +1262,10 @@ export default function DashboardPage() {
                     <button
                       key={name}
                       onClick={() => setCustomForm((p) => ({ ...p, iconName: name }))}
-                      className={`p-2 rounded-lg border transition-all flex items-center justify-center ${
-                        customForm.iconName === name
+                      className={`p-2 rounded-lg border transition-all flex items-center justify-center ${customForm.iconName === name
                           ? "border-primary bg-primary/10 text-primary"
                           : "border-border bg-input text-muted-foreground hover:border-primary/50"
-                      }`}
+                        }`}
                       title={name}
                     >
                       <IconComp className="w-4 h-4" />

@@ -29,40 +29,41 @@ export default function HubPage() {
       color: "bg-yellow-500",
       stats: "Most Popular",
     },
-    {
-      name: "Shout Outs",
-      description: "Create team banners and announcements.",
-      icon: Megaphone,
-      href: "/dashboard/shout-out",
-      color: "bg-orange-500",
-      stats: "New",
-    },
+
+    ...(isAdmin
+      ? [
+        {
+          name: "Shout Outs",
+          description: "Create team banners and announcements.",
+          icon: Megaphone,
+          href: "/dashboard/shout-out",
+          color: "bg-orange-500",
+          badge: "Admin Only",
+        },
+      ]
+      : []),
+
     {
       name: "My Card History",
       description: "View your created and received cards.",
       icon: ImageIcon,
-      href: "/dashboard/my-cards", // Using existing route
+      href: "/dashboard/my-cards",
       color: "bg-pink-500",
     },
-    {
-      name: "Spot Awards",
-      description: "Create professional award posters.",
-      icon: Trophy,
-      href: "/dashboard/spot-awards",
-      color: "bg-amber-500",
-      comingSoon: !isAdmin,
-      badge: isAdmin ? "Admin Only" : undefined
-    },
-    {
-        name: "Business Card",
-        description: "Generate your digital business card.",
-        icon: Briefcase,
-        href: "#",
-        color: "bg-slate-700",
-        comingSoon: true,
-      },
-  ]
 
+    ...(isAdmin
+      ? [
+        {
+          name: "Spot Awards",
+          description: "Create professional award posters.",
+          icon: Trophy,
+          href: "/dashboard/spot-awards",
+          color: "bg-amber-500",
+          badge: "Admin Only",
+        },
+      ]
+      : []),
+  ]
   const growthApps = [
     {
       name: "Talent Search",
@@ -85,41 +86,34 @@ export default function HubPage() {
 
       <div>
         <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-           <span className="w-1 h-6 bg-primary rounded-full"></span>
-           Creative Studio
+          <span className="w-1 h-6 bg-primary rounded-full"></span>
+          Creative Studio
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {creativeApps.map((app) => (
-            <Link 
-                key={app.name} 
-                href={app.comingSoon ? "#" : app.href} 
-                className={app.comingSoon ? "cursor-not-allowed" : ""}
-            >
-              <Card className={`h-full hover:shadow-lg transition-all duration-200 border-border group ${app.comingSoon ? "opacity-60" : "hover:-translate-y-1"}`}>
+            <Link key={app.name} href={app.href}>
+
+              <Card className="h-full hover:shadow-lg transition-all duration-200 border-border group hover:-translate-y-1">
                 <CardContent className="p-6">
                   <div className="flex justify-between items-start mb-4">
                     <div className={`p-3 rounded-xl ${app.color} shadow-md`}>
                       <app.icon className="w-6 h-6 text-white" />
                     </div>
                     {/* @ts-ignore */}
-                    {app.stats && !app.comingSoon && (
+                    {app.stats && (
                       <Badge variant="secondary" className="font-normal">
-                         {/* @ts-ignore */}
+                        {/* @ts-ignore */}
                         {app.stats}
                       </Badge>
                     )}
                     {/* @ts-ignore */}
-                    {app.badge && !app.comingSoon && (
+                    {app.badge && (
                       <Badge variant="secondary" className="font-normal border-amber-500 text-amber-500 bg-amber-50">
-                         {/* @ts-ignore */}
+                        {/* @ts-ignore */}
                         {app.badge}
                       </Badge>
                     )}
-                    {app.comingSoon && (
-                        <Badge variant="outline" className="text-muted-foreground">
-                            Coming Soon
-                        </Badge>
-                    )}
+
                   </div>
                   <h3 className="font-bold text-lg mb-1 group-hover:text-primary transition-colors">
                     {app.name}

@@ -22,7 +22,7 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
 import { useAuth } from "@/hooks/use-auth"
 
-interface SidebarProps extends React.HTMLAttributes<HTMLDivElement> {}
+interface SidebarProps extends React.HTMLAttributes<HTMLDivElement> { }
 
 export function AppSidebar({ className }: SidebarProps) {
   const pathname = usePathname()
@@ -41,12 +41,16 @@ export function AppSidebar({ className }: SidebarProps) {
       href: "/dashboard/kudos",
       color: "text-yellow-500",
     },
-    {
-      name: "Shout Outs",
-      icon: Megaphone,
-      href: "/dashboard/shout-out",
-      color: "text-orange-500",
-    },
+    ...(user?.role === "admin"
+      ? [
+        {
+          name: "Shout Outs",
+          icon: Megaphone,
+          href: "/dashboard/shout-out",
+          color: "text-orange-500",
+        },
+      ]
+      : []),
     ...(user?.role === 'admin' ? [{
       name: "Spot Awards",
       icon: Trophy,
@@ -60,6 +64,7 @@ export function AppSidebar({ className }: SidebarProps) {
       color: "text-pink-500",
     },
   ]
+
 
   const intelligence = [
     {
@@ -94,7 +99,7 @@ export function AppSidebar({ className }: SidebarProps) {
             ))}
           </div>
         </div>
-        
+
         {/* Intelligence section hidden — Talent Search planned for future release */}
       </ScrollArea>
     </div>

@@ -31,6 +31,8 @@ export function RecipientSelector({
   const [loading, setLoading] = React.useState(false);
   const [isFocused, setIsFocused] = React.useState(false);
   const [activeIndex, setActiveIndex] = React.useState(-1);
+  const [editingRecipientId, setEditingRecipientId] = React.useState<string | null>(null);
+  const [editingName, setEditingName] = React.useState("");
 
   const inputRef = React.useRef<HTMLInputElement>(null);
   const containerRef = React.useRef<HTMLDivElement>(null);
@@ -182,6 +184,18 @@ export function RecipientSelector({
     setInputValue("");
   };
 
+  const saveEditedName = (id: string, newName: string) => {
+    if (!newName.trim()) {
+      setEditingRecipientId(null);
+      return;
+    }
+    const updated = selectedRecipients.map(u => 
+      u.id === id ? { ...u, displayName: newName.trim() } : u
+    );
+    onRecipientsChange(updated);
+    setEditingRecipientId(null);
+  };
+
   const canAddMore = type === "team" || selectedRecipients.length === 0;
   const q = inputValue.trim();
   const showDropdown = isFocused && canAddMore && q.length >= 2;
@@ -240,7 +254,37 @@ export function RecipientSelector({
                 key={user.id}
                 className="inline-flex items-center gap-1 bg-primary/10 text-primary border border-primary/20 rounded px-2 py-0.5 text-xs font-medium shrink-0"
               >
-                {user.displayName}
+                {editingRecipientId === user.id ? (
+                  <input
+                    autoFocus
+                    value={editingName}
+                    onChange={(e) => setEditingName(e.target.value)}
+                    onBlur={() => saveEditedName(user.id, editingName)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        saveEditedName(user.id, editingName);
+                      } else if (e.key === "Escape") {
+                        setEditingRecipientId(null);
+                      }
+                    }}
+                    className="bg-transparent border-none outline-none text-xs font-medium p-0 m-0 w-auto"
+                    style={{ width: `${Math.max(editingName.length, 1)}ch` }}
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                ) : (
+                  <span
+                    className="cursor-pointer hover:underline"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setEditingRecipientId(user.id);
+                      setEditingName(user.displayName);
+                    }}
+                    title="Click to edit name"
+                  >
+                    {user.displayName}
+                  </span>
+                )}
                 <button
                   type="button"
                   onClick={(e) => {

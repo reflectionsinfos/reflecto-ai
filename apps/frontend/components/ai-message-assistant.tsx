@@ -68,10 +68,27 @@ export function AiMessageAssistant({
       if (response && response.message) {
         let finalMessage = response.message.trim();
         // Safety trim if backend AI hallucinates extra length, ensuring we stay within 130 char limit
-        if ((context === "Kudos" || context === "Spot Award") && finalMessage.length > 130) {
-            finalMessage = finalMessage.substring(0, 127) + "...";
-        }
-        setGeneratedMessage(finalMessage)
+        if ((context === "Kudos" || context === "Spot Award") && finalMessage.length > 250) {
+  finalMessage = finalMessage.substring(0, 250);
+}
+
+// 🔥 Step 2: Ensure COMPLETE sentence
+if (!finalMessage.endsWith(".")) {
+  const lastDot = finalMessage.lastIndexOf(".");
+
+  if (lastDot > 80) {
+    finalMessage = finalMessage.substring(0, lastDot + 1);
+  } else {
+    // fallback → intelligently complete sentence
+    if (category) {
+      finalMessage = finalMessage.replace(/\s+$/, "") + ` ${category.toLowerCase()}.`;
+    } else {
+      finalMessage = finalMessage.replace(/\s+$/, "") + ".";
+    }
+  }
+}
+
+setGeneratedMessage(finalMessage);
       }
     } catch (error) {
       console.error(error)
@@ -121,7 +138,7 @@ export function AiMessageAssistant({
         </DialogHeader>
 
         <div className="grid gap-4 py-4">
-            
+
           <div className="grid grid-cols-2 gap-4">
               <div>
                   <Label className="text-xs text-muted-foreground">Recipient</Label>
@@ -132,7 +149,7 @@ export function AiMessageAssistant({
                   <div className="font-medium text-sm truncate">{category || context}</div>
               </div>
           </div>
-          
+
           <div className="space-y-2">
             <div className="flex justify-between">
                 <Label htmlFor="draft">Your Draft / Keywords</Label>
@@ -148,7 +165,7 @@ export function AiMessageAssistant({
                     </SelectContent>
                 </Select>
             </div>
-            
+
             <Textarea
               id="draft"
               placeholder={`e.g. Thanks for helping with the deployment last night. You are a lifesaver.`}
@@ -195,3 +212,5 @@ export function AiMessageAssistant({
     </Dialog>
   )
 }
+
+ 
