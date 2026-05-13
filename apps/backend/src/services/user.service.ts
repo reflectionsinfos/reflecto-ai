@@ -23,5 +23,10 @@ export const userService = {
     return await db.query.users.findFirst({
       where: eq(users.email, email)
     });
+  },
+
+  async updateUser(id: string, data: Partial<CreateUserDTO>) {
+    const [updatedUser] = await db.update(users).set(data).where(eq(users.id, id as any)).returning();
+    return updatedUser;
   }
 };

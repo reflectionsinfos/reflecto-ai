@@ -12,24 +12,25 @@ export const msalConfig: Configuration = {
   },
   cache: {
     cacheLocation: "localStorage",
-    // storeAuthStateInCookie is not a valid property in standard MSAL browser configuration or defaults to false/auto. 
-    // If needed for IE11, it is storeAuthStateInCookie: true, but better to omit if type error.
   },
-
+  system: {
+    iframeHashTimeout: 10000,
+  },
 };
 
 export const msalInstance = new PublicClientApplication(msalConfig);
 
+// Used for acquiring API tokens silently — only the API scope so MSAL can
+// find the cached access token without a scope-mismatch cache miss.
 export const apiTokenRequest = {
-  scopes: [
-    apiScope,
-    "openid",
-    "profile",
-    "offline_access"
-  ]
+  scopes: [apiScope],
 };
 
-export const loginRequest = apiTokenRequest;
+// Used for the initial interactive login — includes OIDC scopes to obtain
+// the ID token and a refresh token alongside the API access token.
+export const loginRequest = {
+  scopes: [apiScope, "openid", "profile", "offline_access"],
+};
 
 export const graphTokenRequest = {
   scopes: ["User.Read.All"],

@@ -1,28 +1,28 @@
 import { db } from "../db";
 import { recognitionEvents, users } from "../db/schema";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 
 export class RecognitionService {
   /**
    * Ensure user exists in DB and return their ID
    */
   static async resolveUser(email: string, name: string) {
-      if (!email) return null;
-      
-      const existing = await db.select().from(users).where(eq(users.email, email));
-      if (existing.length > 0) {
-          return existing[0].id;
-      }
+    if (!email) return null;
 
-      // Create new user if not found
-      // Note: Tenant ID is null for now or default
-      const [newUser] = await db.insert(users).values({
-          email,
-          name: name || email.split('@')[0],
-          role: 'user'
-      }).returning();
-      
-      return newUser.id;
+    const existing = await db.select().from(users).where(eq(users.email, email));
+    if (existing.length > 0) {
+      return existing[0].id;
+    }
+
+    // Create new user if not found
+    // Note: Tenant ID is null for now or default
+    const [newUser] = await db.insert(users).values({
+      email,
+      name: name || email.split('@')[0],
+      role: 'user'
+    }).returning();
+
+    return newUser.id;
   }
 
   /**
@@ -37,14 +37,37 @@ export class RecognitionService {
    * Get all recognition events sent by a user
    */
   static async getSentByUser(userId: string) {
-    return db.select().from(recognitionEvents).where(eq(recognitionEvents.senderId, userId));
+    return db.select({
+      id: recognitionEvents.id,
+      createdAt: recognitionEvents.createdAt,
+      senderId: recognitionEvents.senderId,
+      senderEmail: users.email,
+      recipients: recognitionEvents.recipients,
+      type: recognitionEvents.type,
+      metadata: recognitionEvents.metadata,
+      privacyLevel: recognitionEvents.privacyLevel,
+      imageBlob: sql`CASE WHEN ${recognitionEvents.metadata}->>'thumbnailUrl' IS NULL THEN ${recognitionEvents.imageBlob} ELSE NULL END`.as('imageBlob'),
+    }).from(recognitionEvents)
+      .leftJoin(users, eq(recognitionEvents.senderId, users.id))
+      .where(eq(recognitionEvents.senderId, userId));
   }
 
   /**
    * Get all recognition events (Admin/Global View)
    */
   static async getAllEvents() {
-    return db.select().from(recognitionEvents);
+    return db.select({
+      id: recognitionEvents.id,
+      createdAt: recognitionEvents.createdAt,
+      senderId: recognitionEvents.senderId,
+      senderEmail: users.email,
+      recipients: recognitionEvents.recipients,
+      type: recognitionEvents.type,
+      metadata: recognitionEvents.metadata,
+      privacyLevel: recognitionEvents.privacyLevel,
+      imageBlob: sql`CASE WHEN ${recognitionEvents.metadata}->>'thumbnailUrl' IS NULL THEN ${recognitionEvents.imageBlob} ELSE NULL END`.as('imageBlob'),
+    }).from(recognitionEvents)
+      .leftJoin(users, eq(recognitionEvents.senderId, users.id));
   }
 
   /**

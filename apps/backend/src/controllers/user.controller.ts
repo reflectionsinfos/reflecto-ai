@@ -15,9 +15,12 @@ export const userController = {
       return res.status(401).json({ error: 'Unauthorized' });
     }
     
-    const user = await userService.getUserByEmail(email);
+    let user = await userService.getUserByEmail(email);
     if (!user) {
-      return res.status(404).json({ error: 'User not found' });
+      const name = req.user?.name || email.split('@')[0];
+      user = await userService.createUser({ email, name, role: 'user', tenantId: req.user?.tid || '' });
+    } else if (req.user?.name && req.user.name !== user.name) {
+      user = await userService.updateUser(user.id, { name: req.user.name });
     }
     
     res.json({
