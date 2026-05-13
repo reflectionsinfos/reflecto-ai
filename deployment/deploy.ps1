@@ -557,7 +557,7 @@ log "Deployment completed successfully."
     $remoteScript = $remoteScript.Replace("__RETAIN_RELEASES__", [string]$releaseRetention)
     $remoteScript = $remoteScript.Replace("__REMOTE_USER_NAME__", [string](Escape-BashSingleQuoted -Value $remoteUser))
 
-    $remoteScript.Replace("`r`n", "`n") | & $sshCommand @sshBaseArgs "${remoteUser}@${remoteHost}" "bash -s"
+    $remoteScript.Replace("`r`n", "`n").TrimStart([char]0xFEFF) | & $sshCommand @sshBaseArgs "${remoteUser}@${remoteHost}" "bash -s"
     if ($LASTEXITCODE -ne 0) {
       throw "Remote deployment failed."
     }
