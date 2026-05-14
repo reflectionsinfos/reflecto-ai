@@ -582,6 +582,46 @@ export default function DashboardPage() {
 
     setIsGenerating(true)
     try {
+      // Compress and convert files to base64 so they don't bloat the database
+      const fileToBase64Compressed = (file: File): Promise<string> => {
+        return new Promise((resolve, reject) => {
+          const img = new Image();
+          const objectUrl = URL.createObjectURL(file);
+          
+          img.onload = () => {
+            const canvas = document.createElement('canvas');
+            const MAX_SIZE = 400; // Avatars don't need to be huge
+            let width = img.width;
+            let height = img.height;
+            
+            if (width > height) {
+                if (width > MAX_SIZE) {
+                    height *= MAX_SIZE / width;
+                    width = MAX_SIZE;
+                }
+            } else {
+                if (height > MAX_SIZE) {
+                    width *= MAX_SIZE / height;
+                    height = MAX_SIZE;
+                }
+            }
+            
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            ctx?.drawImage(img, 0, 0, width, height);
+            
+            URL.revokeObjectURL(objectUrl);
+            resolve(canvas.toDataURL('image/jpeg', 0.7)); // 70% quality JPEG is very lightweight
+          };
+          img.onerror = reject;
+          img.src = objectUrl;
+        });
+      };
+
+      const imagesBase64 = formData.images ? await Promise.all(formData.images.map(f => fileToBase64Compressed(f))) : [];
+      const imageBase64 = formData.image ? await fileToBase64Compressed(formData.image) : null;
+
       const cardDataPayload = {
         template: {
           ...selectedTemplate,
@@ -591,8 +631,8 @@ export default function DashboardPage() {
         designation: "", // Optional or can be filled if we had data
         message: formData.message,
         creatorName: formData.creatorName,
-        image: formData.image,
-        images: formData.images, // Pass array
+        image: imageBase64,
+        images: imagesBase64, // Pass base64 array
         recipientType: formData.recipientType,
         recipientEmails: formData.recipients.map(r => r.mail || r.userPrincipalName) // Pass emails
       }
