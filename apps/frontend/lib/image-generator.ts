@@ -12,8 +12,8 @@ export interface KudosCardData {
   designation: string
   message: string
   creatorName: string
-  image?: File | null
-  images?: File[] | null
+  image?: File | string | null
+  images?: (File | string)[] | null
   recipientType?: "individual" | "team"
 }
 
@@ -366,14 +366,14 @@ async function generateCustomerCentricChampion(
 
     const file = data.image || (data.images && data.images[0]) || null
 
-    if (file) {
+    if (file && (typeof file === 'string' || file instanceof Blob || file instanceof File)) {
       const img = new Image()
       img.crossOrigin = "anonymous"
 
       await new Promise<void>((resolve, reject) => {
         img.onload = () => resolve()
         img.onerror = reject
-        img.src = URL.createObjectURL(file)
+        img.src = typeof file === 'string' ? file : URL.createObjectURL(file)
       })
 
       const size = radius * 2
@@ -663,14 +663,14 @@ async function generateAgilityChampion(
 
     const file = data.image || (data.images && data.images[0]) || null
 
-    if (file) {
+    if (file && (typeof file === 'string' || file instanceof Blob || file instanceof File)) {
       const img = new Image()
       img.crossOrigin = "anonymous"
 
       await new Promise<void>((resolve, reject) => {
         img.onload = () => resolve()
         img.onerror = reject
-        img.src = URL.createObjectURL(file)
+        img.src = typeof file === 'string' ? file : URL.createObjectURL(file)
       })
 
       const size = radius * 2
@@ -793,14 +793,14 @@ async function generateContinuousImprovementChampion(
 
     const file = data.image || (data.images && data.images[0]) || null
 
-    if (file) {
+    if (file && (typeof file === 'string' || file instanceof Blob || file instanceof File)) {
       const img = new Image()
       img.crossOrigin = "anonymous"
 
       await new Promise<void>((resolve, reject) => {
         img.onload = () => resolve()
         img.onerror = reject
-        img.src = URL.createObjectURL(file)
+        img.src = typeof file === 'string' ? file : URL.createObjectURL(file)
       })
 
       const size = radius * 2
@@ -921,14 +921,14 @@ async function generateCollaborationChampion(
 
     const file = data.image || (data.images && data.images[0]) || null
 
-    if (file) {
+    if (file && (typeof file === 'string' || file instanceof Blob || file instanceof File)) {
       const img = new Image()
       img.crossOrigin = "anonymous"
 
       await new Promise<void>((resolve, reject) => {
         img.onload = () => resolve()
         img.onerror = reject
-        img.src = URL.createObjectURL(file)
+        img.src = typeof file === 'string' ? file : URL.createObjectURL(file)
       })
 
       const size = radius * 2
@@ -1050,14 +1050,14 @@ async function generateAccountabilityChampion(
 
     const file = data.image || (data.images && data.images[0]) || null
 
-    if (file) {
+    if (file && (typeof file === 'string' || file instanceof Blob || file instanceof File)) {
       const img = new Image()
       img.crossOrigin = "anonymous"
 
       await new Promise<void>((resolve, reject) => {
         img.onload = () => resolve()
         img.onerror = reject
-        img.src = URL.createObjectURL(file)
+        img.src = typeof file === 'string' ? file : URL.createObjectURL(file)
       })
 
       const size = radius * 2
@@ -1212,7 +1212,7 @@ async function drawEmployeePhoto(
       await new Promise((resolve, reject) => {
         img.onload = resolve
         img.onerror = reject
-        img.src = URL.createObjectURL(data.image!)
+        img.src = typeof data.image === 'string' ? data.image : URL.createObjectURL(data.image!)
       })
 
       ctx.save()
@@ -1445,13 +1445,17 @@ async function drawCircularTeamAvatars(
   // Pre-load all images
   const loaded: (HTMLImageElement | null)[] = []
   for (const file of slice) {
+    if (!file || (typeof file !== 'string' && !(file instanceof Blob) && !(file instanceof File))) {
+      loaded.push(null)
+      continue
+    }
     try {
       const img = new Image()
       img.crossOrigin = "anonymous"
       await new Promise<void>((resolve, reject) => {
         img.onload = () => resolve()
         img.onerror = reject
-        img.src = URL.createObjectURL(file)
+        img.src = typeof file === 'string' ? file : URL.createObjectURL(file)
       })
       loaded.push(img)
     } catch {

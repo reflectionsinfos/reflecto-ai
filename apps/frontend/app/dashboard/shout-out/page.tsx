@@ -36,21 +36,21 @@ export default function ShoutOutPage() {
         image: null as File | null,
         recipients: [] as GraphUser[]
     });
-    
+
     const [previewUrl, setPreviewUrl] = useState<string | null>(null);
     const [isGenerating, setIsGenerating] = useState(false);
     const [showSuccess, setShowSuccess] = useState(false);
-    
+
     // Sync recipients to audienceName
     useEffect(() => {
         if (formData.recipients.length > 0) {
-             // For team/individual, we use the selected names
-             const names = formData.recipients.map(u => u.displayName).join(", ");
-             setFormData(prev => ({ ...prev, audienceName: names }));
+            // For team/individual, we use the selected names
+            const names = formData.recipients.map(u => u.displayName).join(", ");
+            setFormData(prev => ({ ...prev, audienceName: names }));
         } else {
-             // Clear if empty? Or keep manual edit?
-             // Since RecipientSelector controls this now, clearing is safer.
-             setFormData(prev => ({ ...prev, audienceName: "" }));
+            // Clear if empty? Or keep manual edit?
+            // Since RecipientSelector controls this now, clearing is safer.
+            setFormData(prev => ({ ...prev, audienceName: "" }));
         }
     }, [formData.recipients]);
 
@@ -73,19 +73,19 @@ export default function ShoutOutPage() {
     const generatePreview = async () => {
         const canvas = document.createElement("canvas");
         const style = CATEGORIES.find(c => c.id === formData.category) || CATEGORIES[0];
-        
+
         const data: ShoutOutCardData = {
             style: { ...style, id: style.id },
             category: formData.category as any,
             title: formData.title || "Headline Here",
             message: formData.message || "Your main message will appear here.",
-            audience: formData.recipients.length > 0 ? formData.audienceName : (formData.audienceName || "Organization"), 
+            audience: formData.recipients.length > 0 ? formData.audienceName : (formData.audienceName || "Organization"),
             creatorName: user?.name || "Your Name",
             image: formData.image
         };
 
         await generateShoutOutToCanvas(canvas, data);
-        
+
         canvas.toBlob(blob => {
             if (blob) {
                 const url = URL.createObjectURL(blob);
@@ -159,12 +159,37 @@ export default function ShoutOutPage() {
 
     return (
         <div className="max-w-7xl mx-auto px-6 py-8">
-            <div className="flex justify-between items-center mb-8">
+            <div className="flex justify-between items-start mb-8 gap-4">
+
                 <div>
-                   <h1 className="text-3xl font-bold">New Shout Out</h1>
-                   <p className="text-muted-foreground">Make an announcement to the organization</p>
+                    <h1 className="text-3xl font-bold">
+                        New Shout Out
+                    </h1>
+
+                    <p className="text-muted-foreground">
+                        Make an announcement to the organization
+                    </p>
                 </div>
-                {/* <Button variant="outline">View All</Button> */}
+
+                <a
+                    href="https://www.figma.com/make/41W99Rf4hrGIDkwcEU17KD/Fix-Layout-Alignment-Banner?p=f&fullscreen=1"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="
+            shrink-0
+            rounded-lg
+            border border-primary/30
+            bg-primary/5
+            px-4 py-2
+            text-sm font-medium
+            text-primary
+            hover:bg-primary/10
+            transition-colors
+        "
+                >
+                    Open Banner Layout
+                </a>
+
             </div>
 
             <div className="grid lg:grid-cols-2 gap-8">
@@ -176,7 +201,7 @@ export default function ShoutOutPage() {
                                 <Label>Category</Label>
                                 <div className="grid grid-cols-2 gap-2 mt-2">
                                     {CATEGORIES.map(cat => (
-                                        <div 
+                                        <div
                                             key={cat.id}
                                             onClick={() => handleInputChange("category", cat.id)}
                                             className={`cursor-pointer border rounded-lg p-3 flex items-center gap-2 transition-all ${formData.category === cat.id ? "ring-2 ring-primary border-primary bg-accent/10" : "hover:bg-muted"}`}
@@ -190,15 +215,15 @@ export default function ShoutOutPage() {
 
                             <div>
                                 <Label>Headline</Label>
-                                <Input 
-                                    placeholder="e.g. Q3 Goals Smashed!" 
+                                <Input
+                                    placeholder="e.g. Q3 Goals Smashed!"
                                     value={formData.title}
                                     onChange={e => handleInputChange("title", e.target.value)}
                                     maxLength={40}
                                 />
                             </div>
 
-                            <RecipientSelector 
+                            <RecipientSelector
                                 type={formData.audienceType}
                                 onTypeChange={(val) => handleInputChange("audienceType", val)}
                                 selectedRecipients={formData.recipients}
@@ -206,17 +231,17 @@ export default function ShoutOutPage() {
                             />
 
                             <div>
-                            <div className="flex items-center justify-between">
-                                <Label>Message Body</Label>
-                                <AiMessageAssistant 
-                                    context="Shout Out"
-                                    recipientName={formData.audienceName}
-                                    category={CATEGORIES.find(c => c.id === formData.category)?.name}
-                                    currentValue={formData.message}
-                                    onMessageGenerated={(msg) => handleInputChange("message", msg)}
-                                />
-                            </div>
-                                <Textarea 
+                                <div className="flex items-center justify-between">
+                                    <Label>Message Body</Label>
+                                    <AiMessageAssistant
+                                        context="Shout Out"
+                                        recipientName={formData.audienceName}
+                                        category={CATEGORIES.find(c => c.id === formData.category)?.name}
+                                        currentValue={formData.message}
+                                        onMessageGenerated={(msg) => handleInputChange("message", msg)}
+                                    />
+                                </div>
+                                <Textarea
                                     placeholder="Write your announcement details here..."
                                     className="resize-none h-32"
                                     value={formData.message}
@@ -226,7 +251,7 @@ export default function ShoutOutPage() {
                                 <p className="text-xs text-muted-foreground text-right">{formData.message.length}/200</p>
                             </div>
 
-                             <div>
+                            <div>
                                 <Label>Icon / Logo (Optional)</Label>
                                 <Input type="file" onChange={handleImageUpload} accept="image/*" />
                             </div>
@@ -239,12 +264,12 @@ export default function ShoutOutPage() {
                     <Card className="bg-muted/30 border-dashed">
                         <CardContent className="p-6">
                             <h3 className="text-sm font-semibold mb-4 flex items-center gap-2">
-                                <Layout className="w-4 h-4"/> Live Preview
+                                <Layout className="w-4 h-4" /> Live Preview
                             </h3>
-                            
+
                             <div className="aspect-[16/9] w-full bg-background rounded-lg shadow-sm flex items-center justify-center overflow-hidden border border-border">
                                 {previewUrl ? (
-                                    <img src={previewUrl} className="w-full h-full object-contain" alt="Preview"/>
+                                    <img src={previewUrl} className="w-full h-full object-contain" alt="Preview" />
                                 ) : (
                                     <p className="text-muted-foreground text-sm">Generating...</p>
                                 )}
@@ -259,9 +284,9 @@ export default function ShoutOutPage() {
                     </Card>
                 </div>
             </div>
-            
-             {/* Success Modal */}
-             {showSuccess && (
+
+            {/* Success Modal */}
+            {showSuccess && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
                     <div className="bg-background rounded-lg shadow-xl w-full max-w-md p-6 m-4 border border-border text-center">
                         <div className="flex justify-center text-green-500 mb-4">
