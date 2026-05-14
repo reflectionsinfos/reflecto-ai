@@ -13,6 +13,7 @@ export const tenants = mySchema.table("tenants", {
 // Users Table
 export const users = mySchema.table("users", {
   id: uuid("id").primaryKey().defaultRandom(),
+  azureOid: varchar("azure_oid", { length: 100 }).unique(), // immutable Azure Object ID — primary lookup key
   email: varchar("email", { length: 255 }).notNull().unique(),
   name: varchar("name", { length: 255 }).notNull(),
   role: varchar("role", { length: 50 }).default('user').notNull(), // 'admin' | 'user'

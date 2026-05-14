@@ -43,6 +43,13 @@
       "when": 1769300253698,
       "tag": "0005_big_captain_america",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1778784166032,
+      "tag": "0006_lyrical_baron_strucker",
+      "breakpoints": true
     }
   ]
 }

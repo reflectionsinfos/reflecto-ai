@@ -1,34 +1,44 @@
 import { Request, Response } from 'express';
 import { userService } from '../services/user.service';
 import { asyncHandler } from '../middleware/errorHandler';
+import { db } from '../db';
+import { tenants } from '../db/schema';
 
 export const userController = {
-  createUser: asyncHandler(async (req: Request, res: Response) => {
-    const { email, name, role, tenantId } = req.body;
-    const user = await userService.createUser({ email, name, role, tenantId });
-    res.json(user);
-  }),
-
   getCurrentUser: asyncHandler(async (req: any, res: Response) => {
     const email = req.user?.email;
+    const azureOid = req.user?.id; // auth.ts maps token.oid → req.user.id
+
     if (!email) {
       return res.status(401).json({ error: 'Unauthorized' });
     }
-    
-    let user = await userService.getUserByEmail(email);
+
+    // OID lookup first (immutable). Falls back to email for users who existed
+    // before the azure_oid column was added.
+    let user = azureOid ? await userService.getUserByOid(azureOid) : null;
+
     if (!user) {
+      // Upsert handles three cases atomically:
+      //   1. Brand-new user  → INSERT
+      //   2. Existing user without OID (pre-migration) → UPDATE name + backfill OID
+      //   3. Race condition (two simultaneous first logins) → second write is a no-op update
       const name = req.user?.name || email.split('@')[0];
-      user = await userService.createUser({ email, name, role: 'user', tenantId: req.user?.tid || '' });
+      const [tenant] = await db.select().from(tenants).limit(1);
+      user = await userService.upsertUser({ email, name, role: 'user', azureOid: azureOid || null, tenantId: tenant?.id || null });
     } else if (req.user?.name && req.user.name !== user.name) {
       user = await userService.updateUser(user.id, { name: req.user.name });
     }
-    
+
+    // Attach resolved DB user so downstream middleware (e.g. requireAdmin) can
+    // skip the redundant DB query.
+    req.dbUser = user;
+
     res.json({
       id: user.id,
       email: user.email,
       name: user.name,
       role: user.role,
-      tenantId: user.tenantId
+      tenantId: user.tenantId,
     });
   }),
 
@@ -40,5 +50,5 @@ export const userController = {
     }
     const allUsers = await userService.getAllUsers();
     res.json(allUsers);
-  })
+  }),
 };

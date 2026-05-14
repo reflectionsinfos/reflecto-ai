@@ -1,30 +1,30 @@
-import { Request, Response, NextFunction } from 'express';
-import { db } from '../db';
-import { users } from '../db/schema';
-import { eq } from 'drizzle-orm';
+import { Response, NextFunction } from 'express';
+import { userService } from '../services/user.service';
 
-/**
- * Middleware to require admin role for protected routes
- * Checks user role from database after authentication
- */
+// Requires authenticate() to have run first.
+// If getCurrentUser already resolved req.dbUser in the same request (unlikely for
+// admin routes, but safe to check), we skip the DB round-trip.
 export const requireAdmin = () => async (req: any, res: Response, next: NextFunction) => {
     try {
         const email = req.user?.email;
+        const azureOid = req.user?.id;
+
         if (!email) {
             return res.status(401).json({ error: 'Unauthorized' });
         }
-        
-        const [user] = await db.select().from(users).where(eq(users.email, email));
-        
-        if (!user || user.role !== 'admin') {
-            return res.status(403).json({ 
+
+        const dbUser = req.dbUser
+            ?? (azureOid ? await userService.getUserByOid(azureOid) : null)
+            ?? await userService.getUserByEmail(email);
+
+        if (!dbUser || dbUser.role !== 'admin') {
+            return res.status(403).json({
                 error: 'Admin access required',
-                message: 'You do not have permission to access this resource'
+                message: 'You do not have permission to access this resource',
             });
         }
-        
-        // Attach full user object to request for downstream use
-        req.dbUser = user;
+
+        req.dbUser = dbUser;
         next();
     } catch (error) {
         console.error('Admin authorization check failed:', error);
