@@ -35,18 +35,18 @@ export default function DashboardLayout({
   const router = useRouter()
   const [releaseNotesOpen, setReleaseNotesOpen] = useState(false)
   const [releaseNumber, setReleaseNumber] = useState("Release --")
-  
+
   // Use Azure Auth Hook
   const { user, isAuthenticated, isLoading, error, logout } = useAuth()
-  
+
   // Determine admin status from Azure user roles (or default to false for now)
   // You might map specific Azure AD roles here later
-  const userIsAdmin = user?.role === "admin" 
+  const userIsAdmin = user?.role === "admin"
 
   useEffect(() => {
     // Only redirect if we are done loading and NOT authenticated
     if (!isLoading && !isAuthenticated) {
-        router.push("/")
+      router.push("/")
     }
   }, [isLoading, isAuthenticated, router])
 
@@ -142,27 +142,13 @@ export default function DashboardLayout({
         <div className="max-w-[1920px] mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Link href="/dashboard" className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center shadow-md">
-                <Award className="w-5 h-5 text-primary-foreground" />
-              </div>
+              <img
+                src="/images/image.png"
+                alt="Reflections Logo"
+                className="h-10 w-auto object-contain"
+              />
+              <span className="text-xl font-semibold text-foreground">Reflections</span>
             </Link>
-            <div>
-              <Link href="/dashboard" className="text-xl font-bold text-foreground">
-                Reflecto
-              </Link>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    type="button"
-                    className="block text-sm text-muted-foreground transition-colors hover:text-foreground"
-                    onClick={() => setReleaseNotesOpen(true)}
-                  >
-                    {releaseNumber}
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent side="bottom">Release Info</TooltipContent>
-              </Tooltip>
-            </div>
           </div>
 
           <div className="flex items-center gap-4">
@@ -182,14 +168,14 @@ export default function DashboardLayout({
           </div>
         </div>
       </header>
-      
+
       <div className="flex">
-         <AppSidebar />
-         <main className="flex-1 lg:pl-64 p-6">
-            <div className="max-w-7xl mx-auto">
-             {children}
-            </div>
-         </main>
+        <AppSidebar />
+        <main className="flex-1 lg:pl-64 p-6">
+          <div className="max-w-7xl mx-auto">
+            {children}
+          </div>
+        </main>
       </div>
 
       <Dialog open={releaseNotesOpen} onOpenChange={setReleaseNotesOpen}>

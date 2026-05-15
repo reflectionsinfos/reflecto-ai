@@ -319,8 +319,6 @@ export default function MyCardsPage() {
       year: "numeric",
       month: "short",
       day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
     })
   }
 
@@ -444,10 +442,12 @@ export default function MyCardsPage() {
             )}
           </div>
         </div>
-        <Button onClick={handleExportCSV} className="w-full sm:w-auto shrink-0 bg-accent hover:bg-accent/90 text-accent-foreground">
-          <Download className="w-4 h-4 mr-2" />
-          Export CSV
-        </Button>
+        {userIsAdmin && (
+          <Button onClick={handleExportCSV} className="w-full sm:w-auto shrink-0 bg-accent hover:bg-accent/90 text-accent-foreground">
+            <Download className="w-4 h-4 mr-2" />
+            Export CSV
+          </Button>
+        )}
       </div>
 
       {/* Stats */}
