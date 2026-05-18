@@ -1,20 +1,32 @@
 ﻿{
-    "latest":  "prod-20260502030634-e2e933f",
+    "latest":  "prod-20260518045557-78f8cd7",
     "current":  {
-                    "release":  "prod-20260502030634-e2e933f",
-                    "releaseNumber":  "2026.05.02",
-                    "build":  "20260502030634-e2e933f",
-                    "date":  "2026-05-02T03:06:37Z",
-                    "branch":  "feature/kudos-card-enhancements",
-                    "commit":  "e2e933f",
-                    "customer":  "/release-notes/prod-20260502030634-e2e933f/release_notes_feature_kudos_card_enhancements_2026-05-02_customer.html",
-                    "developer":  "/release-notes/prod-20260502030634-e2e933f/release_notes_feature_kudos_card_enhancements_2026-05-02_developer.html",
+                    "release":  "prod-20260518045557-78f8cd7",
+                    "releaseNumber":  "2026.05.18",
+                    "build":  "20260518045557-78f8cd7",
+                    "date":  "2026-05-18T04:56:04Z",
+                    "branch":  "feature/kudos-enhancement",
+                    "commit":  "78f8cd7",
+                    "customer":  null,
+                    "developer":  null,
                     "files":  [
-                                  "/release-notes/prod-20260502030634-e2e933f/release_notes_feature_kudos_card_enhancements_2026-05-02_customer.html",
-                                  "/release-notes/prod-20260502030634-e2e933f/release_notes_feature_kudos_card_enhancements_2026-05-02_developer.html"
+
                               ]
                 },
     "releases":  [
+                     {
+                         "release":  "prod-20260518045557-78f8cd7",
+                         "releaseNumber":  "2026.05.18",
+                         "build":  "20260518045557-78f8cd7",
+                         "date":  "2026-05-18T04:56:04Z",
+                         "branch":  "feature/kudos-enhancement",
+                         "commit":  "78f8cd7",
+                         "customer":  null,
+                         "developer":  null,
+                         "files":  [
+
+                                   ]
+                     },
                      {
                          "release":  "prod-20260502030634-e2e933f",
                          "releaseNumber":  "2026.05.02",
